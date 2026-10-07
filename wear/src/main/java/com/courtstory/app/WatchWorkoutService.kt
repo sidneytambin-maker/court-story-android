@@ -8,6 +8,8 @@ import androidx.health.services.client.*
 import androidx.health.services.client.data.*
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
@@ -18,11 +20,17 @@ import kotlin.math.max
 /** Health Services owns the sensor lifecycle; a foreground service keeps its callback alive. */
 class WatchWorkoutService : Service(), ExerciseUpdateCallback {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val actionLock = Mutex()
     private val client by lazy { HealthServices.getClient(this).exerciseClient }
     private var state = JSONObject()
     private var finishing = false
+    private var announcedState = ""
     private fun file() = File(filesDir, "watch-workout.json")
-    private fun persist() { WatchTransport.write(file(), state) }
+    private fun persist() {
+        WatchTransport.write(file(), state)
+        val key=state.optString("phase")+":"+state.optBoolean("error")+":"+state.optString("message")
+        if(key!=announcedState){announcedState=key;sendBroadcast(Intent("com.courtstory.app.WORKOUT_STATE").setPackage(packageName).putExtra("record",state.optString("record")))}
+    }
     private suspend fun <T> ListenableFuture<T>.result(): T = suspendCancellableCoroutine { continuation ->
         addListener({ try { continuation.resume(get()) } catch (e: Exception) { continuation.resumeWithException(e) } }, mainExecutor)
     }
@@ -32,20 +40,23 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel("court_workout", "Court Story workout", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 17, Intent(this, WatchActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        startForeground(17, Notification.Builder(this, "court_workout").setSmallIcon(R.drawable.app_icon).setContentTitle("Court Story training").setContentText("Workout recording controls on your watch").setOngoing(true).setContentIntent(open).build())
+        try { startForeground(17, Notification.Builder(this, "court_workout").setSmallIcon(R.drawable.ic_court_monochrome).setContentTitle("Court Story training").setContentText("Workout recording controls on your watch").setOngoing(true).setContentIntent(open).build()) }
+        catch(e:RuntimeException){state.put("phase","Failed").put("error",true).put("message","Workout permission is unavailable. You can finish or record training without sensors.");try{persist()}catch(ignored:Exception){};stopSelf();return START_NOT_STICKY}
         scope.launch {
+            actionLock.withLock {
             try {
                 when(intent?.action) {
                     "start" -> start(intent.getStringExtra("record") ?: error("Missing training record"))
                     "pause" -> client.pauseExerciseAsync().result()
                     "resume" -> client.resumeExerciseAsync().result()
-                    "finish" -> { client.endExerciseAsync().result() }
+                    "finish" -> { if(!state.optBoolean("committed"))client.endExerciseAsync().result() }
                     else -> {
                         val info=client.getCurrentExerciseInfoAsync().result()
                         if(info.exerciseTrackedStatus != ExerciseTrackedStatus.OWNED_EXERCISE_IN_PROGRESS) finishRecord("Workout recording was interrupted. Saved available measurements.")
                     }
                 }
             } catch(e: Exception) { state.put("message", "Workout action could not complete. Retry, or record training without sensors.");state.put("error",true);if(state.optString("phase")=="Preparing")state.put("phase","Failed");persist();if(state.optString("phase")!="Active"&&state.optString("phase")!="Paused"){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()} }
+            }
         }
         return START_STICKY
     }

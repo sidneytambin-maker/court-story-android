@@ -36,6 +36,7 @@ jobs:
           echo 'hw.lcd.height=454' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'hw.lcd.density=320' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'hw.lcd.circular=true' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'vm.heapSize=256' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'hw.rotaryInput=yes' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           mkdir -p evidence
           "$ANDROID_HOME/emulator/emulator" -avd CourtStoryWear4 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 1536 -cores 2 >evidence/emulator.log 2>&1 &
@@ -53,9 +54,14 @@ jobs:
         run: |
           adb install -r -g wear/build/outputs/apk/qa/wear-qa.apk
           adb install -r wear/build/outputs/apk/androidTest/qa/wear-qa-androidTest.apk
-          adb shell am instrument -w -r com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/watch-tests.txt
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell wm dismiss-keyguard
+          adb shell am start -W -n com.courtstory.app.qa/com.courtstory.app.WatchActivity | tee evidence/watch-launch.txt
+          sleep 3
+          adb exec-out screencap -p > evidence/watch-welcome.png
+          adb shell am instrument -w -r -e class com.courtstory.app.WatchStorageTest,com.courtstory.app.WatchPresentationTest com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/watch-tests.txt
           adb exec-out screencap -p > evidence/watch-screen.png
-          adb logcat -d -s AndroidRuntime > evidence/crashes.txt
+          adb logcat -b all -d -s AndroidRuntime ActivityManager ActivityTaskManager art libc lmkd TestRunner ActivityThread System.err > evidence/crashes.txt
           grep -q 'OK (11 tests)' evidence/watch-tests.txt
           ! grep -q 'FATAL EXCEPTION' evidence/crashes.txt
       - name: Collect diagnostics
@@ -63,7 +69,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p evidence
-          timeout 10s adb logcat -d -s AndroidRuntime > evidence/crashes-final.txt 2>/dev/null || true
+          timeout 10s adb logcat -b all -d -s AndroidRuntime ActivityManager ActivityTaskManager art libc lmkd TestRunner ActivityThread System.err > evidence/crashes-final.txt 2>/dev/null || true
           timeout 10s adb exec-out screencap -p > evidence/watch-final.png 2>/dev/null || true
           timeout 10s adb emu kill || true
       - uses: actions/upload-artifact@v4

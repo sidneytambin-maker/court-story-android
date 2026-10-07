@@ -11,6 +11,17 @@ import static com.courtstory.app.Domain.*;
 
 /** Watch presentation shares scoring, validation and record formats with the phone. */
 public final class WatchActivity extends MainActivity {
+    private boolean workoutReceiverRegistered;
+    private final android.content.BroadcastReceiver workoutReceiver=new android.content.BroadcastReceiver(){
+        @Override public void onReceive(android.content.Context context,android.content.Intent intent){
+            if(store==null||editing||isFinishing()||isDestroyed())return;
+            try{store=new Store(WatchActivity.this);JSONObject state=WatchTraining.state(WatchActivity.this);
+                if("trainingSessions".equals(screenTable)&&screenRecord!=null&&screenRecord.equals(state.optString("record"))){JSONObject record=find(store.table("trainingSessions"),screenRecord);if(record!=null){int position=scroll.getScrollY();WatchTraining.show(WatchActivity.this,record);scroll.post(()->scroll.scrollTo(0,position));announce(state.optBoolean("error")?state.optString("message"):"Workout "+state.optString("phase").toLowerCase(java.util.Locale.UK));}}
+            }catch(Exception e){announce("Workout status changed. Refresh saved records to review it.");}
+        }
+    };
+    @Override protected void onStart(){super.onStart();androidx.core.content.ContextCompat.registerReceiver(this,workoutReceiver,new android.content.IntentFilter("com.courtstory.app.WORKOUT_STATE"),androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);workoutReceiverRegistered=true;}
+    @Override protected void onStop(){if(workoutReceiverRegistered){unregisterReceiver(workoutReceiver);workoutReceiverRegistered=false;}super.onStop();}
     @Override void palette(){super.palette();paper=Color.BLACK;card=Color.rgb(23,43,32);ink=Color.WHITE;muted=Color.rgb(211,225,210);green=accent;}
     @Override void page(String title,String subtitle){
         if(store==null){ink=Color.WHITE;muted=Color.LTGRAY;card=Color.rgb(23,43,32);}

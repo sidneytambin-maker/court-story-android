@@ -11,7 +11,7 @@ import static com.courtstory.app.Domain.*;
 
 final class WatchTraining {
     static JSONObject state(WatchActivity a){try{JSONObject s=WatchTransport.read(new File(a.getFilesDir(),"watch-workout.json"));return s==null?obj():s;}catch(Exception e){return obj();}}
-    static void command(WatchActivity a,String action,String id){try{Intent i=new Intent(a,WatchWorkoutService.class).setAction(action).putExtra("record",id);a.startForegroundService(i);a.announce("Workout request sent. Refresh status to check the result.");}catch(Exception e){a.error("The watch could not start its workout service. Training without sensors remains available.");}}
+    static void command(WatchActivity a,String action,String id){try{Intent i=new Intent(a,WatchWorkoutService.class).setAction(action).putExtra("record",id);a.startForegroundService(i);a.announce("Workout request sent. Status will update when it completes.");}catch(Exception e){a.error("The watch could not start its workout service. Training without sensors remains available.");}}
     static void show(WatchActivity a,JSONObject source){
         JSONObject r=find(a.store.table("trainingSessions"),source.optString("id"));if(r==null){a.home();return;}a.current=()->show(a,r);a.page(title("trainingSessions",r),status("trainingSessions",r));a.screenTable="trainingSessions";a.screenRecord=r.optString("id");a.note(summary("trainingSessions",r));JSONObject state=state(a);boolean thisWorkout=state.optString("record").equals(r.optString("id"));boolean sensors=thisWorkout&&(state.optString("phase").equals("Active")||state.optString("phase").equals("Paused")||state.optString("phase").equals("Preparing"));
         if(thisWorkout&&!state.optString("message").isEmpty())a.note(state.optString("message"));
