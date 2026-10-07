@@ -1,0 +1,40 @@
+name: Build validation packages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - uses: android-actions/setup-android@v4
+      - name: Install compile tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Build without private signing keys
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' -PcourtStoryVersion=1.0 -PcourtStoryUnsignedValidation=true :app:testQaUnitTest :app:assembleQa :app:assembleQaAndroidTest :wear:assembleQa :wear:assembleQaAndroidTest :app:assembleRelease :app:bundleRelease :wear:assembleRelease :wear:bundleRelease :app:lintRelease :wear:lintRelease
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: court-story-unsigned-validation
+          retention-days: 7
+          path: |
+            app/build/outputs/apk/qa/*.apk
+            app/build/outputs/apk/androidTest/qa/*.apk
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+            wear/build/outputs/apk/qa/*.apk
+            wear/build/outputs/apk/androidTest/qa/*.apk
+            wear/build/outputs/apk/release/*.apk
+            wear/build/outputs/bundle/release/*.aab
+            app/build/reports/lint-results-release.*
+            wear/build/reports/lint-results-release.*
+            app/build/test-results/testQaUnitTest/

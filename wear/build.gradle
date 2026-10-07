@@ -1,4 +1,6 @@
 plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+// Explicit cloud validation produces unsigned files; signing remains local.
+def unsignedValidation = providers.gradleProperty('courtStoryUnsignedValidation').getOrElse('false').toBoolean()
 def releaseSigning = new Properties()
 def releaseSigningFile = System.getenv('COURT_STORY_SIGNING_PROPERTIES')
 if (releaseSigningFile != null) {
@@ -30,7 +32,7 @@ android {
             }
         }
     }
-    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release }; qa { initWith debug; applicationIdSuffix '.qa'; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['debug'] } }; testBuildType 'qa'
+    buildTypes { release { minifyEnabled false; signingConfig unsignedValidation ? null : signingConfigs.release }; qa { initWith debug; applicationIdSuffix '.qa'; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['debug'] } }; testBuildType 'qa'
     sourceSets { main { java.srcDirs += ['../app/src/main/java']; res.srcDirs += ['../app/src/main/res']; assets.srcDirs += ['../app/src/main/assets'] } }
     lint { abortOnError true }
 
@@ -43,7 +45,7 @@ dependencies { implementation 'com.google.guava:guava:31.0.1-android'; implement
 tasks.configureEach { task ->
     if (task.name in ['validateSigningRelease', 'packageReleaseBundle', 'packageRelease']) {
         task.doFirst {
-            if (releaseSigning.isEmpty()) throw new GradleException('Configure COURT_STORY_SIGNING_PROPERTIES with your private upload-key properties before making a release.')
+            if (!unsignedValidation && releaseSigning.isEmpty()) throw new GradleException('Configure COURT_STORY_SIGNING_PROPERTIES with your private upload-key properties before making a release.')
         }
     }
 }
