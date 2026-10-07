@@ -25,6 +25,17 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
     private var state = JSONObject()
     private var finishing = false
     private var announcedState = ""
+    private enum class WorkoutOwner { THIS_APP, OTHER_APP, NONE, UNKNOWN }
+    // Health Services 1.1.0 marks this documented IntDef's companion as restricted.
+    // Keep the compatibility exception confined to the mapping, not the workout lifecycle.
+    // https://developer.android.com/health-and-fitness/health-services/active-data
+    @android.annotation.SuppressLint("RestrictedApi", "WrongConstant")
+    private fun owner(info: ExerciseInfo): WorkoutOwner = when(info.exerciseTrackedStatus) {
+        ExerciseTrackedStatus.OWNED_EXERCISE_IN_PROGRESS -> WorkoutOwner.THIS_APP
+        ExerciseTrackedStatus.OTHER_APP_IN_PROGRESS -> WorkoutOwner.OTHER_APP
+        ExerciseTrackedStatus.NO_EXERCISE_IN_PROGRESS -> WorkoutOwner.NONE
+        else -> WorkoutOwner.UNKNOWN
+    }
     private fun file() = File(filesDir, "watch-workout.json")
     private fun persist() {
         WatchTransport.write(file(), state)
@@ -52,7 +63,8 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
                     "finish" -> { if(state.optBoolean("committed")){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()} else if(state.optString("phase")=="Ended")finishRecord("Training finished. Available workout measurements saved.") else client.endExerciseAsync().result() }
                     else -> {
                         val info=client.getCurrentExerciseInfoAsync().result()
-                        if(info.exerciseTrackedStatus != ExerciseTrackedStatus.OWNED_EXERCISE_IN_PROGRESS) finishRecord("Workout recording was interrupted. Saved available measurements.")
+                        if(owner(info) == WorkoutOwner.UNKNOWN) throw IllegalStateException("Workout status is not available yet")
+                        if(owner(info) != WorkoutOwner.THIS_APP) finishRecord("Workout recording was interrupted. Saved available measurements.")
                     }
                 }
             } catch(e: Exception) { if(e is CancellationException)throw e;state.put("message", "Workout action could not complete. Retry, or record training without sensors.");state.put("error",true);if(state.optString("phase")=="Preparing")state.put("phase","Failed");persist();if(state.optString("phase")!="Active"&&state.optString("phase")!="Paused"){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()} }
@@ -62,8 +74,9 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
     }
     private suspend fun start(id:String) {
         val info=client.getCurrentExerciseInfoAsync().result()
-        if(info.exerciseTrackedStatus==ExerciseTrackedStatus.OTHER_APP_IN_PROGRESS) throw IllegalStateException("Another app is recording a workout")
-        if(info.exerciseTrackedStatus==ExerciseTrackedStatus.OWNED_EXERCISE_IN_PROGRESS){if(state.optString("record")!=id)throw IllegalStateException("Finish the current Court Story workout first");return}
+        if(owner(info)==WorkoutOwner.UNKNOWN) throw IllegalStateException("Workout status is not available yet")
+        if(owner(info)==WorkoutOwner.OTHER_APP) throw IllegalStateException("Another app is recording a workout")
+        if(owner(info)==WorkoutOwner.THIS_APP){if(state.optString("record")!=id)throw IllegalStateException("Finish the current Court Story workout first");return}
         val store=Store(this);val record=Domain.find(store.table("trainingSessions"),id) ?: error("Training record missing")
         WatchTraining.startIssue(store,id)?.let { throw IllegalStateException(it) }
         state=JSONObject().put("record",id).put("phase","Preparing").put("startedAt",Domain.now());persist()
