@@ -22,11 +22,11 @@ public final class WatchActivity extends MainActivity {
     };
     @Override protected void onStart(){super.onStart();androidx.core.content.ContextCompat.registerReceiver(this,workoutReceiver,new android.content.IntentFilter("com.courtstory.app.WORKOUT_STATE"),androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);workoutReceiverRegistered=true;}
     @Override protected void onStop(){if(workoutReceiverRegistered){unregisterReceiver(workoutReceiver);workoutReceiverRegistered=false;}super.onStop();}
-    @Override void palette(){super.palette();paper=Color.BLACK;card=Color.rgb(23,43,32);ink=Color.WHITE;muted=Color.rgb(211,225,210);green=accent;}
+    @Override void palette(){super.palette();String theme=store.settings().optString("theme","Tennis");if(theme.equals("System"))return;paper=Color.BLACK;card=theme.equals("High Contrast")?Color.BLACK:theme.equals("Classic")?Color.rgb(22,38,50):Color.rgb(23,43,32);ink=Color.WHITE;muted=theme.equals("High Contrast")?Color.WHITE:Color.rgb(211,225,210);accent=theme.equals("High Contrast")?Color.WHITE:theme.equals("Classic")?Color.rgb(124,222,255):Color.rgb(221,255,40);green=accent;}
     @Override void page(String title,String subtitle){
         if(store==null){ink=Color.WHITE;muted=Color.LTGRAY;card=Color.rgb(23,43,32);}
         editing=false;screenName=title;screenTable=null;screenRecord=null;boundFields.clear();
-        root=column();root.setBackgroundColor(Color.BLACK);setContentView(root);root.setAccessibilityPaneTitle("Court Story. "+title);
+        root=column();root.setBackgroundColor(paper);setContentView(root);root.setAccessibilityPaneTitle("Court Story. "+title);
         scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);body=column();boolean round=getResources().getConfiguration().isScreenRound();body.setPadding(dp(round?26:14),dp(round?24:16),dp(round?26:14),dp(round?48:20));scroll.addView(body);root.addView(scroll,new LinearLayout.LayoutParams(-1,-1));
         TextView heading=text(title,20,true);heading.setAccessibilityHeading(true);heading.setGravity(Gravity.CENTER);body.addView(heading,lp());if(!subtitle.isEmpty())note(subtitle);
         feedback=text("",14,false);feedback.setVisibility(View.GONE);feedback.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);body.addView(feedback,lp());nav=column();

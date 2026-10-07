@@ -43,7 +43,7 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
     void history(){for(int i=1;i<=3;i++){org.json.JSONObject match=a.newRecord("matches");Domain.put(match,"opponentName","Synthetic rival "+i);Domain.put(match,"date",java.time.Instant.now().minusSeconds(i*86400L).toString());Domain.put(match,"status","Completed");Domain.put(match,"result",i==2?"Loss":"Win");Domain.put(match,"setScores",i==2?"3-6":"6-3");Domain.upsert(a.store.data,"matches",match);org.json.JSONObject training=a.newRecord("trainingSessions");Domain.put(training,"date",match.optString("date"));Domain.put(training,"androidScheduled",false);Domain.put(training,"durationMinutes",45);Domain.put(training,"focus","Rally consistency");Domain.upsert(a.store.data,"trainingSessions",training);}assertTrue(a.save());}
     public void testPreferencesOpenThroughNormalMenuAndSave() throws Throwable {
         org.json.JSONObject original=Domain.copy(a.store.data);
-        try{runTestOnUiThread(()->{profile("Player");a.settings();assertTrue(text(a.root).contains("Watch preferences"));Button save=button(a.root,"Save preferences");assertNotNull(save);save.performClick();assertEquals("Today",a.screenName);assertFalse(a.editing);});}
+        try{runTestOnUiThread(()->{profile("Player");a.settings();assertTrue(text(a.root).contains("Watch preferences"));Button save=button(a.root,"Save preferences");assertNotNull(save);save.performClick();assertEquals("Today",a.screenName);assertFalse(a.editing);Domain.put(a.store.settings(),"theme","Tennis");a.palette();int tennis=a.accent;Domain.put(a.store.settings(),"theme","Classic");a.palette();assertTrue("Classic must visibly differ from Tennis",tennis!=a.accent);Domain.put(a.store.settings(),"theme","High Contrast");a.palette();assertEquals(android.graphics.Color.WHITE,a.ink);assertEquals(android.graphics.Color.BLACK,a.paper);});}
         finally{Store restore=new Store(a);restore.data=original;restore.save();}
     }
     public void testCoachHasRosterAndOwnGameRoutes() throws Throwable {
@@ -75,6 +75,11 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
                 }
             }
         }finally{Store restore=new Store(a);restore.data=original;restore.save();}
+    }
+    public void testConflictReviewIncludesActualCompetingEdits() throws Throwable {
+        org.json.JSONObject original=Domain.copy(a.store.data);
+        try{runTestOnUiThread(()->{profile("Player");org.json.JSONObject local=a.newRecord("matches"),incoming=Domain.copy(local),conflict=Domain.obj();Domain.put(local,"notes","Practise serves");Domain.put(incoming,"notes","Practise returns");Domain.put(conflict,"id",Domain.id());Domain.put(conflict,"table","matches");Domain.put(conflict,"local",local);Domain.put(conflict,"incoming",incoming);Domain.array(a.store.data,"androidWatchConflicts").put(conflict);WatchConnection.show(a);String shown=text(a.root);assertTrue(shown.contains("This device: Practise serves"));assertTrue(shown.contains("Incoming: Practise returns"));assertNotNull(button(a.root,"Keep this device's version"));});}
+        finally{Store restore=new Store(a);restore.data=original;restore.save();}
     }
     public void testTrainingDetailsKeepPendingMeasurementsSafe() throws Throwable {
         org.json.JSONObject original=Domain.copy(a.store.data),oldState=WatchTraining.state(a);

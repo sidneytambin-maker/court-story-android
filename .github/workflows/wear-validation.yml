@@ -37,7 +37,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-${{ matrix.api }};${{ matrix.tag }};x86_64'
       - name: Build and run shared unit tests
-        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :wear:assembleQa :wear:assembleQaAndroidTest
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :wear:assembleQa :wear:assembleQaAndroidTest :wear:lintQa
       - name: Start round Wear OS emulator
         shell: bash
         run: |
@@ -79,7 +79,7 @@ jobs:
           adb shell am instrument -w -r -e class com.courtstory.app.WatchStorageTest,com.courtstory.app.WatchPresentationTest com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/watch-tests.txt
           adb exec-out screencap -p > evidence/watch-screen.png
           adb logcat -b all -d -s AndroidRuntime ActivityManager ActivityTaskManager art libc lmkd TestRunner ActivityThread System.err > evidence/crashes.txt
-          grep -q 'OK (13 tests)' evidence/watch-tests.txt
+          grep -q 'OK (14 tests)' evidence/watch-tests.txt
           ! grep -q 'FATAL EXCEPTION' evidence/crashes.txt
       - name: Collect diagnostics
         if: always()
@@ -98,3 +98,4 @@ jobs:
           path: |
             evidence/
             app/build/test-results/testQaUnitTest/
+            wear/build/reports/lint-results-qa.*
