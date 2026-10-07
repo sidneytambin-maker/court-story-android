@@ -7,7 +7,7 @@ jobs:
   phone:
     runs-on: ubuntu-24.04
     env:
-      ANDROID_AVD_HOME: ${{ runner.temp }}/court-story-avd
+      ANDROID_AVD_HOME: /tmp/court-story-avd
     timeout-minutes: 45
     strategy:
       fail-fast: false
