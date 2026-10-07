@@ -30,12 +30,17 @@ public final class CourtGlance {
         for(Map.Entry<String,List<JSONObject>> group:scoped.entrySet())for(JSONObject r:group.getValue()){
             String t=group.getKey();long date=millis(r,"date");boolean eligible;
             if(kind.equals("current")){eligible=active(r);date=Math.max(millis(r,"actualStart"),millis(r,"modifiedAt"));}
-            else if(kind.equals("next")){boolean scheduled=status(t,r).equals("Scheduled")||status(t,r).equals("Entered");eligible=!active(r)&&scheduled&&(t.equals("tournaments")?Math.max(date,millis(r,"endDate"))>=today:date>=(r.optBoolean("hasStartTime")?now:today));}
+            else if(kind.equals("next")){eligible=upcoming(t,r,now);}
             else {date=finished(t,r);eligible=status(t,r).equals("Completed")&&!active(r)&&date>0&&date<=now;}
             if(eligible&&(selected==null||(kind.equals("next")?date<boundary:date>boundary))){selected=r;selectedTable=t;boundary=date;}
         }
         if(selected!=null)return activity(selectedTable,selected,kind,now);
         return kind.equals("current")?empty("Now","Start","No "+sport+" activity is running.","training"):kind.equals("next")?empty("Next","None","No upcoming "+sport+" activity is scheduled.",""):empty("Latest","None","No completed "+sport+" activity is recorded.","recentRecord");
+    }
+    static boolean upcoming(String table,JSONObject record,long now){
+        String state=status(table,record);if(active(record)||!(state.equals("Scheduled")||state.equals("Entered")))return false;
+        long today=Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),date=millis(record,"date");
+        return table.equals("tournaments")?Math.max(date,millis(record,"endDate"))>=today:date>=(record.optBoolean("hasStartTime")?now:today);
     }
     static long finished(String t,JSONObject r){long end=millis(r,"actualFinish");if(end>0)return end;if(t.equals("tournaments"))return Math.max(millis(r,"date"),millis(r,"endDate"));return millis(r,"date")+(t.equals("trainingSessions")?duration(r)*60000L:0);}
     static CourtGlance week(Map<String,List<JSONObject>> scoped,String sport,long now){
