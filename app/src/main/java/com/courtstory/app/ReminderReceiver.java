@@ -37,13 +37,20 @@ public class ReminderReceiver extends BroadcastReceiver {
         if(item==null)return false;
         NotificationManager manager=c.getSystemService(NotificationManager.class);createChannel(c,store);
         if(!manager.areNotificationsEnabled())return false;
-        Intent open=new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP).setAction(item.key).putExtra("table",item.table).putExtra("id",item.id);
+        Intent open=openIntent(c).setAction(item.key).putExtra("table",item.table).putExtra("id",item.id);
         PendingIntent tap=PendingIntent.getActivity(c,item.key.hashCode(),open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         String text=item.text;
         if(!item.table.equals("reports")){JSONObject record=find(store.table(item.table),item.id),person=find(store.table("players"),record.optString("playerID"));text+=(person==null?"":" • "+playerName(person))+" • "+record.optString("sport","Tennis");}
         Notification n=new Notification.Builder(c,channelId(store)).setSmallIcon(android.R.drawable.ic_menu_my_calendar).setContentTitle("Court Story").setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setVisibility(Notification.VISIBILITY_PRIVATE).setContentIntent(tap).setAutoCancel(true).build();
         manager.notify(item.key.hashCode(),n);return true;
     }
+    static Intent openIntent(Context c){
+        if(c.getPackageManager().hasSystemFeature("android.hardware.type.watch"))return new Intent().setClassName(c,"com.courtstory.app.WatchActivity").addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        return phoneIntent(c);
+    }
+    // Phone-only task reuse; the watch branch above opens its launcher directly.
+    @android.annotation.SuppressLint("WearRecents")
+    private static Intent phoneIntent(Context c){return new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);}
     @Override public void onReceive(Context c,Intent i){
         PendingResult pending=goAsync();Context app=c.getApplicationContext();
         WORK.execute(()->{try{deliver(app,i);scheduleNow(app,new Store(app));}catch(Exception e){android.util.Log.w("CourtStory","Reminder delivery unavailable");}finally{pending.finish();}});

@@ -22,7 +22,7 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
     }
     public void testWatchMenuCanReturnHomeWithoutProfile() throws Throwable {
         runTestOnUiThread(()->a.watchMenu());getInstrumentation().waitForIdleSync();
-        runTestOnUiThread(()->{assertTrue(text(a.root).contains("Today"));checkButtons(a.root);a.home();assertNotNull(a.root.getAccessibilityPaneTitle());});
+        runTestOnUiThread(()->{assertTrue(text(a.root).contains("Today"));android.content.Intent reminder=ReminderReceiver.openIntent(a);assertEquals(WatchActivity.class.getName(),reminder.getComponent().getClassName());assertEquals(0,reminder.getFlags()&(android.content.Intent.FLAG_ACTIVITY_NEW_TASK|android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP));checkButtons(a.root);a.home();assertNotNull(a.root.getAccessibilityPaneTitle());});
     }
     public void testConnectionStartsWithExplicitControls() throws Throwable {
         runTestOnUiThread(()->WatchConnection.show(a));getInstrumentation().waitForIdleSync();

@@ -11,12 +11,12 @@
     <application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true">
         <meta-data android:name="com.google.android.wearable.standalone" android:value="true"/>
         <service android:name=".WatchWorkoutService" android:exported="false" android:foregroundServiceType="health"/>
-        <activity android:name=".WatchActivity" android:exported="true">
+        <activity android:taskAffinity="${applicationId}" android:name=".WatchActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
             <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="courtstory"/></intent-filter>
         </activity>
-        <activity android:name=".MainActivity" android:exported="false"/>
-        <activity android:name=".HealthPrivacyActivity" android:exported="false"/>
+        <activity android:taskAffinity="${applicationId}" android:name=".MainActivity" android:exported="false"/>
+        <activity android:taskAffinity="${applicationId}" android:name=".HealthPrivacyActivity" android:exported="false"/>
         <receiver android:name=".ReminderReceiver" android:exported="false"/>
         <receiver android:name=".BootReceiver" android:exported="true"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter></receiver>
         <service android:name=".WatchSyncService" android:exported="true">
