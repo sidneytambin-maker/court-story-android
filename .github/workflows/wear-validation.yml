@@ -1,0 +1,69 @@
+name: Wear OS validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wear:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install Android tools
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-33;android-wear;x86_64'
+      - name: Build and run shared unit tests
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :wear:assembleQa :wear:assembleQaAndroidTest
+      - name: Start round Wear OS emulator
+        shell: bash
+        run: |
+          sudo chmod 666 /dev/kvm
+          echo no | avdmanager create avd --name CourtStoryWear4 --package 'system-images;android-33;android-wear;x86_64' --device wearos_large_round
+          echo 'hw.lcd.circular=true' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
+          echo 'hw.rotaryInput=yes' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
+          mkdir -p evidence
+          "$ANDROID_HOME/emulator/emulator" -avd CourtStoryWear4 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 1536 -cores 2 >evidence/emulator.log 2>&1 &
+          adb wait-for-device
+          for attempt in $(seq 1 180); do
+            if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
+            sleep 2
+          done
+          test "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
+          adb shell settings put global device_provisioned 1
+          adb shell settings put secure user_setup_complete 1
+          adb shell input keyevent 82
+      - name: Run watch storage, presentation and synthetic workout checks
+        shell: bash
+        run: |
+          adb install -r -g wear/build/outputs/apk/qa/wear-qa.apk
+          adb install -r wear/build/outputs/apk/androidTest/qa/wear-qa-androidTest.apk
+          adb shell am instrument -w -r com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/watch-tests.txt
+          adb exec-out screencap -p > evidence/watch-screen.png
+          adb logcat -d -s AndroidRuntime > evidence/crashes.txt
+          grep -q 'OK (8 tests)' evidence/watch-tests.txt
+          ! grep -q 'FATAL EXCEPTION' evidence/crashes.txt
+      - name: Collect diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p evidence
+          adb logcat -d -s AndroidRuntime > evidence/crashes-final.txt 2>/dev/null || true
+          adb exec-out screencap -p > evidence/watch-final.png 2>/dev/null || true
+          adb emu kill || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wear-validation-evidence
+          retention-days: 7
+          path: |
+            evidence/
+            app/build/test-results/testQaUnitTest/

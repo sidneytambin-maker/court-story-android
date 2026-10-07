@@ -1,0 +1,19 @@
+package com.courtstory.app;
+import org.junit.Test;
+import org.json.*;
+import java.io.IOException;
+import static org.junit.Assert.*;
+import static com.courtstory.app.Domain.*;
+
+public class WatchMergeTest {
+    JSONObject library(){JSONObject d=newLibrary(),p=obj();put(p,"id",id());put(p,"name","Test wearer");table(d,"players").put(p);put(d,"selectedPlayerID",p.optString("id"));return d;}
+    JSONObject match(JSONObject d){JSONObject m=obj();put(m,"id",id());put(m,"playerID",d.optString("selectedPlayerID"));put(m,"status","Completed");put(m,"date","2026-01-01T12:00:00Z");table(d,"matches").put(m);return m;}
+    @Test public void firstConnectionCopiesWithoutAliasing() throws Exception {JSONObject remote=library(),result=WatchMerge.merge(newLibrary(),remote,null);assertTrue(WatchMerge.same(remote,result));put(result,"test",true);assertFalse(remote.has("test"));}
+    @Test public void otherLibraryCannotReplaceLocalRecords() throws Exception {try{WatchMerge.merge(library(),library(),null);fail();}catch(IOException expected){assertTrue(expected.getMessage().contains("different"));}}
+    @Test public void independentRecordsMergeExactlyOnce() throws Exception {JSONObject base=library(),local=copy(base),remote=copy(base);match(local);match(remote);JSONObject merged=WatchMerge.merge(local,remote,base);assertEquals(2,table(merged,"matches").length());assertEquals(2,table(WatchMerge.merge(merged,remote,base),"matches").length());}
+    @Test public void unchangedLocalAcceptsRemoteEdit() throws Exception {JSONObject base=library(),m=match(base),remote=copy(base);put(find(table(remote,"matches"),m.optString("id")),"notes","Reviewed result");JSONObject merged=WatchMerge.merge(copy(base),remote,base);assertEquals("Reviewed result",table(merged,"matches").getJSONObject(0).optString("notes"));assertEquals(0,array(merged,"androidWatchConflicts").length());}
+    @Test public void concurrentEditsRetainBothVersions() throws Exception {JSONObject base=library(),m=match(base),local=copy(base),remote=copy(base);put(find(table(local,"matches"),m.optString("id")),"notes","Phone change");put(find(table(remote,"matches"),m.optString("id")),"notes","Watch change");JSONObject merged=WatchMerge.merge(local,remote,base);assertEquals("Phone change",table(merged,"matches").getJSONObject(0).optString("notes"));assertEquals("Watch change",array(merged,"androidWatchConflicts").getJSONObject(0).getJSONObject("incoming").optString("notes"));}
+    @Test public void remoteDeletionDoesNotEraseChangedLocalRecord() throws Exception {JSONObject base=library(),m=match(base),local=copy(base),remote=copy(base);put(find(table(local,"matches"),m.optString("id")),"notes","Unsynced change");table(remote,"matches").remove(0);array(remote,"deletedRecordIDs").put(m.optString("id"));JSONObject merged=WatchMerge.merge(local,remote,base);assertEquals(1,table(merged,"matches").length());assertEquals(1,array(merged,"androidWatchConflicts").length());assertEquals(0,array(merged,"deletedRecordIDs").length());}
+    @Test public void localDeletionVersusRemoteEditStopsSafely() throws Exception {JSONObject base=library(),m=match(base),local=copy(base),remote=copy(base);table(local,"matches").remove(0);array(local,"deletedRecordIDs").put(m.optString("id"));put(find(table(remote,"matches"),m.optString("id")),"notes","Watch change");try{WatchMerge.merge(local,remote,base);fail();}catch(IOException expected){assertEquals(0,table(local,"matches").length());assertEquals(1,table(remote,"matches").length());}}
+    @Test public void canonicalComparisonDistinguishesStringsAndNulls(){JSONObject a=obj(),b=obj();put(a,"name","null");put(b,"name",JSONObject.NULL);assertFalse(WatchMerge.same(a,b));JSONObject x=obj(),y=obj();put(x,"one",1);put(x,"two",2);put(y,"two",2);put(y,"one",1);assertTrue(WatchMerge.same(x,y));}
+}
