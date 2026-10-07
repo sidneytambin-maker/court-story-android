@@ -27,7 +27,7 @@ public final class Store {
             if(!java.util.Arrays.equals(savedBytes,current))throw new IOException("Your saved records changed while this screen was open. Refresh the screen before saving again. Your existing records are safe.");
             byte[] next=data.toString().getBytes(StandardCharsets.UTF_8);
             FileOutputStream stream=null;try{stream=file.startWrite();stream.write(next);file.finishWrite(stream);savedBytes=next;}catch(IOException e){if(stream!=null)file.failWrite(stream);throw e;}}
-        try{CourtWidget.refresh(context);}catch(RuntimeException ignored){/* Widget refresh cannot undo a successful atomic save. */}
+        try{if(context.getPackageManager().hasSystemFeature("android.hardware.type.watch"))context.sendBroadcast(new android.content.Intent().setClassName(context,"com.courtstory.app.WatchGlanceReceiver"));else CourtWidget.refresh(context);}catch(RuntimeException ignored){/* Widget refresh cannot undo a successful atomic save. */}
     }
     public JSONObject settings(){return object(data,"settings");}
     public JSONArray table(String name){return Domain.table(data,name);}

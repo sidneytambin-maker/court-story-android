@@ -1,0 +1,7 @@
+<resources>
+    <string name="complication_current">Court Story · Current activity</string>
+    <string name="complication_next">Court Story · Next activity</string>
+    <string name="complication_week">Court Story · This week</string>
+    <string name="complication_latest">Court Story · Latest result</string>
+    <string name="complication_training">Court Story · Start training</string>
+</resources>
