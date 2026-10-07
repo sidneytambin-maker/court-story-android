@@ -9,6 +9,18 @@ jobs:
     env:
       ANDROID_AVD_HOME: /tmp/court-story-avd
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Wear4
+            api: '33'
+            tag: android-wear
+            size: 454
+          - name: Wear7
+            api: '37.0'
+            tag: android-wear-signed
+            size: 384
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -23,7 +35,7 @@ jobs:
         shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-33;android-wear;x86_64'
+          sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-${{ matrix.api }};${{ matrix.tag }};x86_64'
       - name: Build and run shared unit tests
         run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :wear:assembleQa :wear:assembleQaAndroidTest
       - name: Start round Wear OS emulator
@@ -31,15 +43,15 @@ jobs:
         run: |
           sudo chmod 666 /dev/kvm
           mkdir -p "$ANDROID_AVD_HOME"
-          echo no | avdmanager create avd --name CourtStoryWear4 --package 'system-images;android-33;android-wear;x86_64'
-          echo 'hw.lcd.width=454' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
-          echo 'hw.lcd.height=454' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo no | avdmanager create avd --name CourtStoryWear4 --package 'system-images;android-${{ matrix.api }};${{ matrix.tag }};x86_64'
+          echo 'hw.lcd.width=${{ matrix.size }}' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.height=${{ matrix.size }}' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'hw.lcd.density=320' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'hw.lcd.circular=true' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'vm.heapSize=256' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'hw.rotaryInput=yes' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           mkdir -p evidence
-          "$ANDROID_HOME/emulator/emulator" -avd CourtStoryWear4 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 1536 -cores 2 >evidence/emulator.log 2>&1 &
+          "$ANDROID_HOME/emulator/emulator" -avd CourtStoryWear4 -no-window -no-audio -no-boot-anim -no-snapshot -gpu software -memory 1536 -cores 2 >evidence/emulator.log 2>&1 &
           timeout 180s adb wait-for-device
           for attempt in $(seq 1 180); do
             if [[ "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
@@ -48,7 +60,12 @@ jobs:
           test "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
           adb shell settings put global device_provisioned 1
           adb shell settings put secure user_setup_complete 1
-          adb shell input keyevent 82
+          adb shell dumpsys battery unplug
+          adb shell dumpsys deviceidle disable
+          adb shell settings put system screen_off_timeout 1800000
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell wm dismiss-keyguard
+          sleep 10
       - name: Run watch storage, presentation and synthetic workout checks
         shell: bash
         run: |
@@ -76,7 +93,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: wear-validation-evidence
+          name: wear-validation-${{ matrix.name }}
           retention-days: 7
           path: |
             evidence/
