@@ -6,6 +6,8 @@ permissions:
 jobs:
   wear:
     runs-on: ubuntu-24.04
+    env:
+      ANDROID_AVD_HOME: ${{ runner.temp }}/court-story-avd
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -28,12 +30,13 @@ jobs:
         shell: bash
         run: |
           sudo chmod 666 /dev/kvm
+          mkdir -p "$ANDROID_AVD_HOME"
           echo no | avdmanager create avd --name CourtStoryWear4 --package 'system-images;android-33;android-wear;x86_64'
-          echo 'hw.lcd.width=454' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
-          echo 'hw.lcd.height=454' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
-          echo 'hw.lcd.density=320' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
-          echo 'hw.lcd.circular=true' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
-          echo 'hw.rotaryInput=yes' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.width=454' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.height=454' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.density=320' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.circular=true' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.rotaryInput=yes' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           mkdir -p evidence
           "$ANDROID_HOME/emulator/emulator" -avd CourtStoryWear4 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 1536 -cores 2 >evidence/emulator.log 2>&1 &
           timeout 180s adb wait-for-device
@@ -53,7 +56,7 @@ jobs:
           adb shell am instrument -w -r com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/watch-tests.txt
           adb exec-out screencap -p > evidence/watch-screen.png
           adb logcat -d -s AndroidRuntime > evidence/crashes.txt
-          grep -q 'OK (10 tests)' evidence/watch-tests.txt
+          grep -q 'OK (11 tests)' evidence/watch-tests.txt
           ! grep -q 'FATAL EXCEPTION' evidence/crashes.txt
       - name: Collect diagnostics
         if: always()

@@ -50,6 +50,27 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
         try{runTestOnUiThread(()->{profile("Coach");a.home();assertNotNull(button(a.root,"Your players"));assertTrue(text(a.root).contains("My own game"));assertNotNull(button(a.root,"Track"));a.watchMenu();assertNotNull(button(a.root,"Your players"));});}
         finally{Store restore=new Store(a);restore.data=original;restore.save();}
     }
+    public void testGoogleAccessibilityChecksAcrossRolesAndTrackingModes() throws Throwable {
+        org.json.JSONObject original=Domain.copy(a.store.data);
+        try{
+            for(String role:new String[]{"Player","Coach"})for(String tier:new String[]{"Basic","Standard","Power"}){
+                runTestOnUiThread(()->{profile(role);Domain.put(a.store.player(),"trackingMode",tier);assertTrue(a.save());});
+                for(Runnable screen:new Runnable[]{a::home,a::track,a::watchMenu,a::settings,a::reports,()->Achievements.show(a)}){
+                    java.util.concurrent.CountDownLatch drawn=new java.util.concurrent.CountDownLatch(1);
+                    runTestOnUiThread(()->{screen.run();View target=a.root;target.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener(){public boolean onPreDraw(){target.getViewTreeObserver().removeOnPreDrawListener(this);drawn.countDown();return true;}});target.invalidate();});
+                    assertTrue("Screen must be laid out",drawn.await(10,java.util.concurrent.TimeUnit.SECONDS));
+                    final java.util.concurrent.atomic.AtomicReference<com.google.android.apps.common.testing.accessibility.framework.uielement.AccessibilityHierarchyAndroid> hierarchy=new java.util.concurrent.atomic.AtomicReference<>();
+                    if(android.os.Build.VERSION.SDK_INT>=34){android.view.accessibility.AccessibilityNodeInfo node=getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).getRootInActiveWindow();assertNotNull(node);assertEquals(a.getPackageName(),String.valueOf(node.getPackageName()));hierarchy.set(com.google.android.apps.common.testing.accessibility.framework.uielement.AccessibilityHierarchyAndroid.newBuilder(node,a).build());}
+                    else runTestOnUiThread(()->hierarchy.set(com.google.android.apps.common.testing.accessibility.framework.uielement.AccessibilityHierarchyAndroid.newBuilder(a.root).build()));
+                    java.util.List<String> errors=new java.util.ArrayList<>();
+                    for(com.google.android.apps.common.testing.accessibility.framework.AccessibilityHierarchyCheck check:com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckPreset.getAccessibilityHierarchyChecksForPreset(com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckPreset.LATEST))
+                        for(com.google.android.apps.common.testing.accessibility.framework.AccessibilityHierarchyCheckResult result:check.runCheckOnHierarchy(hierarchy.get()))
+                            if(result.getType()==com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResult.AccessibilityCheckResultType.ERROR)errors.add(check.getClass().getSimpleName()+": "+result.getMessage(java.util.Locale.UK));
+                    assertTrue(role+" / "+tier+" / "+a.screenName+": "+errors,errors.isEmpty());
+                }
+            }
+        }finally{Store restore=new Store(a);restore.data=original;restore.save();}
+    }
     public void testSyntheticWorkoutStartPauseResumeFinish() throws Throwable {
         assertTrue("Sensor test requires the QA package",a.getPackageName().endsWith(".qa"));
         final org.json.JSONObject original=Domain.copy(a.store.data);

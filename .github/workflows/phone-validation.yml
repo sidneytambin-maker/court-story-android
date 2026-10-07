@@ -6,6 +6,8 @@ permissions:
 jobs:
   phone:
     runs-on: ubuntu-24.04
+    env:
+      ANDROID_AVD_HOME: ${{ runner.temp }}/court-story-avd
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -30,15 +32,16 @@ jobs:
         shell: bash
         run: |
           sudo chmod 666 /dev/kvm
+          mkdir -p "$ANDROID_AVD_HOME"
           echo no | avdmanager create avd --name CourtStoryPhone --package 'system-images;android-${{ matrix.api }};google_apis;x86_64' --device pixel_6
           mkdir -p evidence
           "$ANDROID_HOME/emulator/emulator" -avd CourtStoryPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 >evidence/emulator.log 2>&1 &
-          adb wait-for-device
+          timeout 180s adb wait-for-device
           for attempt in $(seq 1 180); do
-            if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
+            if [[ "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
             sleep 2
           done
-          test "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
+          test "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
           adb shell settings put global device_provisioned 1
           adb shell settings put secure user_setup_complete 1
           adb shell input keyevent 82
@@ -68,9 +71,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p evidence
-          adb logcat -d -s AndroidRuntime > evidence/crashes.txt 2>/dev/null || true
-          adb exec-out screencap -p > evidence/phone-final.png 2>/dev/null || true
-          adb emu kill || true
+          timeout 10s adb logcat -d -s AndroidRuntime > evidence/crashes.txt 2>/dev/null || true
+          timeout 10s adb exec-out screencap -p > evidence/phone-final.png 2>/dev/null || true
+          timeout 10s adb emu kill || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
