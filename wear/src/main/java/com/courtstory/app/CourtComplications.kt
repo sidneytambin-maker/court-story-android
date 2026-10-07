@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
 /** Complications expose only the summary a wearer explicitly selects in their watch face. */
 object CourtComplications {
     @JvmStatic fun render(context:Context,kind:String,type:ComplicationType,glance:CourtGlance,preview:Boolean):ComplicationData? {
-        val shown=if(!preview&&android.os.Build.VERSION.SDK_INT<33)CourtGlance.empty(glance.title,"Open","Open Court Story for this summary.","")else glance
+        val shown=if(!preview&&!context.getSharedPreferences("watch-glances",0).getBoolean("showDetails",false))CourtGlance.empty(glance.title,"Open","Open Court Story for this summary.","")else glance
         val description=PlainComplicationText.Builder(shown.description+" Tap to open the latest saved record.").build()
         val image=MonochromaticImage.Builder(Icon.createWithResource(context,R.drawable.ic_court_complication)).build()
         val intent=Intent(context,WatchActivity::class.java).setAction(Intent.ACTION_VIEW)
@@ -25,12 +25,12 @@ object CourtComplications {
         return when(type) {
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(PlainComplicationText.Builder(shown.compact.take(7)).build(),description)
                 .setTitle(PlainComplicationText.Builder(title).build()).setMonochromaticImage(image).setTapAction(tap)
-                .apply { if(android.os.Build.VERSION.SDK_INT>=33){setDisplayPolicy(ComplicationDisplayPolicies.DO_NOT_SHOW_WHEN_DEVICE_LOCKED);setPersistencePolicy(ComplicationPersistencePolicies.DO_NOT_PERSIST)} }.build()
+                .build()
             ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(PlainComplicationText.Builder(shown.detail).build(),description)
                 .setTitle(PlainComplicationText.Builder("Court Story · ${glance.title}").build()).setMonochromaticImage(image).setTapAction(tap)
-                .apply { if(android.os.Build.VERSION.SDK_INT>=33){setDisplayPolicy(ComplicationDisplayPolicies.DO_NOT_SHOW_WHEN_DEVICE_LOCKED);setPersistencePolicy(ComplicationPersistencePolicies.DO_NOT_PERSIST)} }.build()
+                .build()
             ComplicationType.MONOCHROMATIC_IMAGE -> MonochromaticImageComplicationData.Builder(image,description).setTapAction(tap)
-                .apply { if(android.os.Build.VERSION.SDK_INT>=33){setDisplayPolicy(ComplicationDisplayPolicies.DO_NOT_SHOW_WHEN_DEVICE_LOCKED);setPersistencePolicy(ComplicationPersistencePolicies.DO_NOT_PERSIST)} }.build()
+                .build()
             else -> null
         }
     }
