@@ -28,17 +28,20 @@ jobs:
         shell: bash
         run: |
           sudo chmod 666 /dev/kvm
-          echo no | avdmanager create avd --name CourtStoryWear4 --package 'system-images;android-33;android-wear;x86_64' --device wearos_large_round
+          echo no | avdmanager create avd --name CourtStoryWear4 --package 'system-images;android-33;android-wear;x86_64'
+          echo 'hw.lcd.width=454' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.height=454' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.density=320' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
           echo 'hw.lcd.circular=true' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
           echo 'hw.rotaryInput=yes' >> "$HOME/.android/avd/CourtStoryWear4.avd/config.ini"
           mkdir -p evidence
           "$ANDROID_HOME/emulator/emulator" -avd CourtStoryWear4 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 1536 -cores 2 >evidence/emulator.log 2>&1 &
-          adb wait-for-device
+          timeout 180s adb wait-for-device
           for attempt in $(seq 1 180); do
-            if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
+            if [[ "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
             sleep 2
           done
-          test "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
+          test "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
           adb shell settings put global device_provisioned 1
           adb shell settings put secure user_setup_complete 1
           adb shell input keyevent 82
@@ -50,16 +53,16 @@ jobs:
           adb shell am instrument -w -r com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/watch-tests.txt
           adb exec-out screencap -p > evidence/watch-screen.png
           adb logcat -d -s AndroidRuntime > evidence/crashes.txt
-          grep -q 'OK (8 tests)' evidence/watch-tests.txt
+          grep -q 'OK (10 tests)' evidence/watch-tests.txt
           ! grep -q 'FATAL EXCEPTION' evidence/crashes.txt
       - name: Collect diagnostics
         if: always()
         shell: bash
         run: |
           mkdir -p evidence
-          adb logcat -d -s AndroidRuntime > evidence/crashes-final.txt 2>/dev/null || true
-          adb exec-out screencap -p > evidence/watch-final.png 2>/dev/null || true
-          adb emu kill || true
+          timeout 10s adb logcat -d -s AndroidRuntime > evidence/crashes-final.txt 2>/dev/null || true
+          timeout 10s adb exec-out screencap -p > evidence/watch-final.png 2>/dev/null || true
+          timeout 10s adb emu kill || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

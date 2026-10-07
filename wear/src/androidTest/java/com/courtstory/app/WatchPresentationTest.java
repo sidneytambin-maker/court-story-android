@@ -38,6 +38,18 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
         }
         fail("Expected workout phase "+phase+", received "+state);return null;
     }
+    Button button(View v,String label){if(v instanceof Button&&((Button)v).getText().toString().equals(label))return (Button)v;if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++){Button result=button(((ViewGroup)v).getChildAt(i),label);if(result!=null)return result;}return null;}
+    void profile(String role){a.store.data=Domain.newLibrary();org.json.JSONObject p=Domain.obj();Domain.put(p,"id",Domain.id());Domain.put(p,"name","Synthetic watch "+role);Domain.put(p,"role",role);Domain.put(p,"sport","Tennis");Domain.put(p,"trackingMode","Basic");Domain.table(a.store.data,"players").put(p);Domain.put(a.store.data,"selectedPlayerID",p.optString("id"));assertTrue(a.save());}
+    public void testPreferencesOpenThroughNormalMenuAndSave() throws Throwable {
+        org.json.JSONObject original=Domain.copy(a.store.data);
+        try{runTestOnUiThread(()->{profile("Player");a.settings();assertTrue(text(a.root).contains("Watch preferences"));Button save=button(a.root,"Save preferences");assertNotNull(save);save.performClick();assertEquals("Today",a.screenName);assertFalse(a.editing);});}
+        finally{Store restore=new Store(a);restore.data=original;restore.save();}
+    }
+    public void testCoachHasRosterAndOwnGameRoutes() throws Throwable {
+        org.json.JSONObject original=Domain.copy(a.store.data);
+        try{runTestOnUiThread(()->{profile("Coach");a.home();assertNotNull(button(a.root,"Your players"));assertTrue(text(a.root).contains("My own game"));assertNotNull(button(a.root,"Track"));a.watchMenu();assertNotNull(button(a.root,"Your players"));});}
+        finally{Store restore=new Store(a);restore.data=original;restore.save();}
+    }
     public void testSyntheticWorkoutStartPauseResumeFinish() throws Throwable {
         assertTrue("Sensor test requires the QA package",a.getPackageName().endsWith(".qa"));
         final org.json.JSONObject original=Domain.copy(a.store.data);
