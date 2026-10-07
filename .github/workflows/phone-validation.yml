@@ -1,0 +1,82 @@
+name: Android phone validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  phone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        api: ['36.1', '37.0']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-${{ matrix.api }};google_apis;x86_64'
+      - name: Build and check phone app
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :app:assembleQa :app:assembleQaAndroidTest :app:lintQa
+      - name: Start phone emulator
+        shell: bash
+        run: |
+          sudo chmod 666 /dev/kvm
+          echo no | avdmanager create avd --name CourtStoryPhone --package 'system-images;android-${{ matrix.api }};google_apis;x86_64' --device pixel_6
+          mkdir -p evidence
+          "$ANDROID_HOME/emulator/emulator" -avd CourtStoryPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 >evidence/emulator.log 2>&1 &
+          adb wait-for-device
+          for attempt in $(seq 1 180); do
+            if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
+            sleep 2
+          done
+          test "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
+          adb shell settings put global device_provisioned 1
+          adb shell settings put secure user_setup_complete 1
+          adb shell input keyevent 82
+      - name: Run full phone regression suite
+        shell: bash
+        run: |
+          adb install -r -g app/build/outputs/apk/qa/app-qa.apk
+          adb install -r app/build/outputs/apk/androidTest/qa/app-qa-androidTest.apk
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('app/src/androidTest/java/com/courtstory/app')
+          classes=['com.courtstory.app.AuditFlowTest','com.courtstory.app.WatchStorageTest']
+          count=0
+          for name in ['DeviceFlowTest','AuditFlowTest','ReleaseAuditTest','BusinessAuditTest','WatchStorageTest']:
+              methods=re.findall(r'public void (test\w+)\(', (root/(name+'.java')).read_text())
+              count+=len(methods)
+              if name in ['ReleaseAuditTest','BusinessAuditTest']:
+                  classes.extend('com.courtstory.app.'+name+'#'+method for method in methods)
+          Path('evidence/native-classes.txt').write_text(','.join(classes))
+          Path('evidence/expected-tests.txt').write_text(str(count))
+          PY
+          adb shell am instrument -w -r -e class "$(cat evidence/native-classes.txt)" com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/phone-tests.txt
+          grep -q "OK ($(cat evidence/expected-tests.txt) tests)" evidence/phone-tests.txt
+      - name: Collect diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p evidence
+          adb logcat -d -s AndroidRuntime > evidence/crashes.txt 2>/dev/null || true
+          adb exec-out screencap -p > evidence/phone-final.png 2>/dev/null || true
+          adb emu kill || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phone-validation-${{ matrix.api }}
+          retention-days: 7
+          path: |
+            evidence/
+            app/build/test-results/testQaUnitTest/
+            app/build/reports/lint-results-qa.*
