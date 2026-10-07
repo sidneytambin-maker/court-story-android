@@ -49,7 +49,7 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
                     "start" -> start(intent.getStringExtra("record") ?: error("Missing training record"))
                     "pause" -> client.pauseExerciseAsync().result()
                     "resume" -> client.resumeExerciseAsync().result()
-                    "finish" -> { if(!state.optBoolean("committed"))client.endExerciseAsync().result() }
+                    "finish" -> { if(state.optBoolean("committed")){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()} else if(state.optString("phase")=="Ended")finishRecord("Training finished. Available workout measurements saved.") else client.endExerciseAsync().result() }
                     else -> {
                         val info=client.getCurrentExerciseInfoAsync().result()
                         if(info.exerciseTrackedStatus != ExerciseTrackedStatus.OWNED_EXERCISE_IN_PROGRESS) finishRecord("Workout recording was interrupted. Saved available measurements.")
@@ -65,7 +65,7 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
         if(info.exerciseTrackedStatus==ExerciseTrackedStatus.OTHER_APP_IN_PROGRESS) throw IllegalStateException("Another app is recording a workout")
         if(info.exerciseTrackedStatus==ExerciseTrackedStatus.OWNED_EXERCISE_IN_PROGRESS){if(state.optString("record")!=id)throw IllegalStateException("Finish the current Court Story workout first");return}
         val store=Store(this);val record=Domain.find(store.table("trainingSessions"),id) ?: error("Training record missing")
-        if(record.optString("playerID")!=store.player()?.optString("id"))throw IllegalStateException("Only your own training can use your wrist sensors")
+        WatchTraining.startIssue(store,id)?.let { throw IllegalStateException(it) }
         state=JSONObject().put("record",id).put("phase","Preparing").put("startedAt",Domain.now());persist()
         val capabilities=client.getCapabilitiesAsync().result()
         val requested=when(record.optString("sport","Tennis")){"Tennis"->ExerciseType.TENNIS;"Badminton"->ExerciseType.BADMINTON;"Squash"->ExerciseType.SQUASH;"Table tennis"->ExerciseType.TABLE_TENNIS;else->ExerciseType.WORKOUT}
@@ -95,15 +95,17 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
         }
         update.activeDurationCheckpoint?.let { val running = !update.exerciseStateInfo.state.isPaused && !update.exerciseStateInfo.state.isEnded; val extra = if(running) max(0,java.time.Duration.between(it.time,Instant.now()).seconds) else 0; state.put("durationSeconds",it.activeDuration.seconds+extra) }
         val exerciseState=update.exerciseStateInfo.state
+        if(exerciseState.isEnded&&!state.has("endedAt"))state.put("endedAt",Domain.now())
         state.put("phase",if(exerciseState.isPaused)"Paused" else if(exerciseState.isEnded)"Ended" else "Active")
-        try{persist();if(exerciseState.isEnded)finishRecord("Training finished. Available workout measurements saved.")}catch(e:Exception){state.put("message","Workout measurements could not be saved. Keep the app installed and retry.")}
+        try{persist();if(exerciseState.isEnded)finishRecord("Training finished. Available workout measurements saved.")}catch(e:Exception){state.put("error",true).put("message","Workout measurements could not be saved. Open this session and retry saving the workout.");try{persist()}catch(ignored:Exception){}}
     }
     private fun finishRecord(message:String){
         if(finishing||state.optBoolean("committed")||state.optString("record").isEmpty())return;finishing=true
-        try{val store=Store(this);val source=Domain.find(store.table("trainingSessions"),state.optString("record"));if(source!=null){val record=Domain.copy(source);val workout=JSONObject().put("source","Wear OS Health Services").put("durationSeconds",state.optLong("durationSeconds",max(1,(System.currentTimeMillis()-Domain.millis(state,"startedAt"))/1000)))
+        try{val store=Store(this);val source=Domain.find(store.table("trainingSessions"),state.optString("record"));if(source==null)throw IllegalStateException("Training record missing; measurements remain on this watch");val record=Domain.copy(source);val workout=JSONObject().put("source","Wear OS Health Services").put("durationSeconds",state.optLong("durationSeconds",0))
             for(key in arrayOf("averageHeartRate","peakHeartRate","activeEnergyKcal","distanceMeters","stepCount"))if(state.has(key))workout.put(key,state.get(key))
-            record.put("workout",workout).put("actualFinish",Domain.now()).put("androidScheduled",false).put("durationSource","recorded");store.saveRecord("trainingSessions",record)}
-            state.put("phase","Ended").put("committed",true).put("message",message);persist();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()
+            if(!state.has("endedAt"))state.put("endedAt",Domain.now())
+            record.put("workout",workout).put("actualFinish",state.optString("endedAt")).put("androidScheduled",false).put("durationSource","recorded");store.saveRecord("trainingSessions",record)
+            state.put("phase","Ended").put("error",false).put("committed",true).put("message",message);persist();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()
         }finally{finishing=false}
     }
     override fun onLapSummaryReceived(lapSummary:ExerciseLapSummary) {}

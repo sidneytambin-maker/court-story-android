@@ -76,6 +76,16 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
             }
         }finally{Store restore=new Store(a);restore.data=original;restore.save();}
     }
+    public void testTrainingDetailsKeepPendingMeasurementsSafe() throws Throwable {
+        org.json.JSONObject original=Domain.copy(a.store.data),oldState=WatchTraining.state(a);
+        try{runTestOnUiThread(()->{profile("Player");org.json.JSONObject record=a.newRecord("trainingSessions");Domain.put(record,"androidScheduled",true);assertTrue(a.saveRecord("trainingSessions",record));WatchTraining.show(a,record);assertNotNull(button(a.root,"Edit session"));assertNotNull(button(a.root,"Delete record"));try{org.json.JSONObject state=Domain.obj();Domain.put(state,"record",record.optString("id"));Domain.put(state,"phase","Ended");Domain.put(state,"committed",false);WatchTransport.write(new java.io.File(a.getFilesDir(),"watch-workout.json"),state);}catch(Exception e){throw new AssertionError(e);}WatchTraining.show(a,record);assertNotNull(button(a.root,"Retry saving workout"));assertNull(button(a.root,"Delete record"));assertNull(button(a.root,"Edit session"));});}
+        finally{Store restore=new Store(a);restore.data=original;restore.save();WatchTransport.write(new java.io.File(a.getFilesDir(),"watch-workout.json"),oldState);}
+    }
+    public void testWorkoutStartRejectsAnotherActiveSessionAndAthlete() throws Throwable {
+        org.json.JSONObject original=Domain.copy(a.store.data);
+        try{runTestOnUiThread(()->{profile("Coach");org.json.JSONObject planned=a.newRecord("trainingSessions");Domain.put(planned,"androidScheduled",true);assertTrue(a.saveRecord("trainingSessions",planned));assertNull(WatchTraining.startIssue(a.store,planned.optString("id")));org.json.JSONObject running=a.newRecord("trainingSessions");Domain.put(running,"actualStart",Domain.now());assertTrue(a.saveRecord("trainingSessions",running));assertTrue(WatchTraining.startIssue(a.store,planned.optString("id")).contains("active"));Domain.put(running,"actualFinish",Domain.now());assertTrue(a.saveRecord("trainingSessions",running));assertNull(WatchTraining.startIssue(a.store,planned.optString("id")));assertTrue(WatchTraining.startIssue(a.store,running.optString("id")).contains("scheduled"));org.json.JSONObject athlete=Domain.copy(a.store.player());Domain.put(athlete,"id",Domain.id());Domain.table(a.store.data,"players").put(athlete);Domain.put(planned,"playerID",athlete.optString("id"));assertTrue(a.saveRecord("trainingSessions",planned));assertTrue(WatchTraining.startIssue(a.store,planned.optString("id")).contains("own training"));});}
+        finally{Store restore=new Store(a);restore.data=original;restore.save();}
+    }
     public void testSyntheticWorkoutStartPauseResumeFinish() throws Throwable {
         assertTrue("Sensor test requires the QA package",a.getPackageName().endsWith(".qa"));
         final org.json.JSONObject original=Domain.copy(a.store.data);
@@ -90,6 +100,7 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
             });
             waitPhase("Active");Thread.sleep(5000);
             runTestOnUiThread(()->WatchTraining.command(a,"pause","00000000-0000-4000-8000-000000000032"));waitPhase("Paused");long paused=WatchTraining.state(a).optLong("durationSeconds");Thread.sleep(2000);assertEquals("Paused duration must not advance",paused,WatchTraining.state(a).optLong("durationSeconds"));
+            a.stopService(new android.content.Intent(a,WatchWorkoutService.class));Thread.sleep(500);runTestOnUiThread(()->WatchTraining.command(a,"recover","00000000-0000-4000-8000-000000000032"));waitPhase("Paused");
             runTestOnUiThread(()->WatchTraining.command(a,"resume","00000000-0000-4000-8000-000000000032"));waitPhase("Active");Thread.sleep(5000);
             runTestOnUiThread(()->WatchTraining.command(a,"finish","00000000-0000-4000-8000-000000000032"));waitPhase("Ended");
             for(int i=0;i<100;i++){org.json.JSONObject s=WatchTransport.read(new java.io.File(a.getFilesDir(),"watch-workout.json"));if(s.optBoolean("committed"))break;Thread.sleep(100);}
@@ -98,6 +109,7 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
             assertNotNull(result);assertFalse(result.optString("actualFinish").isEmpty());
             assertEquals("Wear OS Health Services",Domain.object(result,"workout").optString("source"));
             assertTrue("Recorded active duration",Domain.object(result,"workout").optLong("durationSeconds")>=5);
+            WatchTransport.write(new java.io.File(a.getExternalFilesDir(null),"synthetic-workout.json"),Domain.object(result,"workout"));
         } finally {
             a.stopService(new android.content.Intent(a,WatchWorkoutService.class));
             Store restore=new Store(a);restore.data=original;restore.save();
