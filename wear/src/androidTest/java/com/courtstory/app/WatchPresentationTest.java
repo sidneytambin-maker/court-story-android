@@ -92,6 +92,7 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
             runTestOnUiThread(()->WatchTraining.command(a,"resume","00000000-0000-4000-8000-000000000032"));waitPhase("Active");Thread.sleep(5000);
             runTestOnUiThread(()->WatchTraining.command(a,"finish","00000000-0000-4000-8000-000000000032"));waitPhase("Ended");
             for(int i=0;i<100;i++){org.json.JSONObject s=WatchTransport.read(new java.io.File(a.getFilesDir(),"watch-workout.json"));if(s.optBoolean("committed"))break;Thread.sleep(100);}
+            assertFalse("Normal workout completion must not become an error",WatchTraining.state(a).optBoolean("error"));
             Store saved=new Store(a);org.json.JSONObject result=Domain.find(saved.table("trainingSessions"),"00000000-0000-4000-8000-000000000032");
             assertNotNull(result);assertFalse(result.optString("actualFinish").isEmpty());
             assertEquals("Wear OS Health Services",Domain.object(result,"workout").optString("source"));

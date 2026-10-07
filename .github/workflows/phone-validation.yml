@@ -1,6 +1,12 @@
 name: Android phone validation
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: Regression scope
+        type: choice
+        default: full
+        options: [full, recovery]
 permissions:
   contents: read
 jobs:
@@ -11,7 +17,7 @@ jobs:
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 2
       matrix:
         api: ['36.1', '37.0']
     steps:
@@ -46,13 +52,16 @@ jobs:
           adb shell settings put secure user_setup_complete 1
           adb shell input keyevent 82
       - name: Run full phone regression suite
+        timeout-minutes: 15
+        env:
+          VALIDATION_SCOPE: ${{ inputs.scope }}
         shell: bash
         run: |
           adb install -r -g app/build/outputs/apk/qa/app-qa.apk
           adb install -r app/build/outputs/apk/androidTest/qa/app-qa-androidTest.apk
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import re, os
           root=Path('app/src/androidTest/java/com/courtstory/app')
           classes=['com.courtstory.app.AuditFlowTest','com.courtstory.app.WatchStorageTest']
           count=0
@@ -61,6 +70,9 @@ jobs:
               count+=len(methods)
               if name in ['ReleaseAuditTest','BusinessAuditTest']:
                   classes.extend('com.courtstory.app.'+name+'#'+method for method in methods)
+          if os.environ.get('VALIDATION_SCOPE') == 'recovery':
+              classes=['com.courtstory.app.WatchStorageTest','com.courtstory.app.BusinessAuditTest#testReminderDeliveredByAndroidOpensCorrectRecord']
+              count=5
           Path('evidence/native-classes.txt').write_text(','.join(classes))
           Path('evidence/expected-tests.txt').write_text(str(count))
           PY

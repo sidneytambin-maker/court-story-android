@@ -101,7 +101,7 @@ public class BusinessAuditTest extends AuditFlowTest {
             android.service.notification.StatusBarNotification target=null;long limit=SystemClock.elapsedRealtime()+10000;
             while(target==null&&SystemClock.elapsedRealtime()<limit){for(android.service.notification.StatusBarNotification n:manager.getActiveNotifications())if(n.getId()==item.key.hashCode())target=n;if(target==null)Thread.sleep(50);}
             assertNotNull("Real Android receiver must post the reminder",target);assertTrue(target.getNotification().extras.getCharSequence(Notification.EXTRA_TEXT).toString().contains("QA Player"));
-            target.getNotification().contentIntent.send();getInstrumentation().waitForIdleSync();ui(()->{assertEquals("matches",a.screenTable);assertEquals(recordId[0],a.screenRecord);});
+            target.getNotification().contentIntent.send();java.util.concurrent.atomic.AtomicBoolean opened=new java.util.concurrent.atomic.AtomicBoolean();long openDeadline=SystemClock.elapsedRealtime()+10000;do{getInstrumentation().waitForIdleSync();ui(()->opened.set("matches".equals(a.screenTable)&&recordId[0].equals(a.screenRecord)));if(!opened.get())Thread.sleep(50);}while(!opened.get()&&SystemClock.elapsedRealtime()<openDeadline);ui(()->{assertEquals("matches",a.screenTable);assertEquals(recordId[0],a.screenRecord);});
         }finally{manager.cancelAll();}
     }
     public void testStaleReminderCannotPostAfterDeletion() throws Exception {

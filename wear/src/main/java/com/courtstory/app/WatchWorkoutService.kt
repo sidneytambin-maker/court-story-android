@@ -55,7 +55,7 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
                         if(info.exerciseTrackedStatus != ExerciseTrackedStatus.OWNED_EXERCISE_IN_PROGRESS) finishRecord("Workout recording was interrupted. Saved available measurements.")
                     }
                 }
-            } catch(e: Exception) { state.put("message", "Workout action could not complete. Retry, or record training without sensors.");state.put("error",true);if(state.optString("phase")=="Preparing")state.put("phase","Failed");persist();if(state.optString("phase")!="Active"&&state.optString("phase")!="Paused"){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()} }
+            } catch(e: Exception) { if(e is CancellationException)throw e;state.put("message", "Workout action could not complete. Retry, or record training without sensors.");state.put("error",true);if(state.optString("phase")=="Preparing")state.put("phase","Failed");persist();if(state.optString("phase")!="Active"&&state.optString("phase")!="Paused"){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()} }
             }
         }
         return START_STICKY
