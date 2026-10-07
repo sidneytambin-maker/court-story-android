@@ -36,6 +36,9 @@ public class WatchStorageTest extends InstrumentationTestCase {
         File file=new File(isolated.getFilesDir(),"state.json");assertNull(WatchTransport.read(file));
         JSONObject state=obj();put(state,"phase","Failed");put(state,"message","Training without sensors remains available.");
         WatchTransport.write(file,state);assertTrue(WatchMerge.same(state,WatchTransport.read(file)));
+        assertTrue(file.renameTo(new File(file.getPath()+".bak")));
+        try(java.io.FileOutputStream out=new java.io.FileOutputStream(file)){out.write("interrupted write".getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+        assertTrue("Atomic recovery must preserve the last committed workout",WatchMerge.same(state,WatchTransport.read(file)));
     }
     public void testTransportReadsUtf8OnOlderAndroid() throws Exception {
         byte[] expected="Court Story · entraînement".getBytes(java.nio.charset.StandardCharsets.UTF_8);

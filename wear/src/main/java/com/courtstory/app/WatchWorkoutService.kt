@@ -56,6 +56,7 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
         scope.launch {
             actionLock.withLock {
             try {
+                if(intent?.action in listOf("pause","resume","finish") && intent?.getStringExtra("record")!=state.optString("record"))throw IllegalStateException("The requested workout is no longer current")
                 when(intent?.action) {
                     "start" -> start(intent.getStringExtra("record") ?: error("Missing training record"))
                     "pause" -> client.pauseExerciseAsync().result()
@@ -73,6 +74,7 @@ class WatchWorkoutService : Service(), ExerciseUpdateCallback {
         return START_STICKY
     }
     private suspend fun start(id:String) {
+        if(state.optString("phase")=="Ended"&&!state.optBoolean("committed")&&!state.optString("record").isEmpty())throw IllegalStateException("Save the previous workout before starting another")
         val info=client.getCurrentExerciseInfoAsync().result()
         if(owner(info)==WorkoutOwner.UNKNOWN) throw IllegalStateException("Workout status is not available yet")
         if(owner(info)==WorkoutOwner.OTHER_APP) throw IllegalStateException("Another app is recording a workout")

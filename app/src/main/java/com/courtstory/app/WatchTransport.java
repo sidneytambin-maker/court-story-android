@@ -16,7 +16,7 @@ final class WatchTransport {
     static boolean enabled(Context c){return c.getSharedPreferences("watch-connection",0).getBoolean("enabled",false);}
     static File inbox(Context c){return new File(c.getFilesDir(),"watch-inbox.json");}
     static File baseline(Context c){return new File(c.getFilesDir(),"watch-baseline.json");}
-    static JSONObject read(File file) throws Exception {if(!file.exists())return null;try(InputStream in=new FileInputStream(file)){return new JSONObject(new String(readBytes(in),StandardCharsets.UTF_8));}}
+    static JSONObject read(File file) throws Exception {if(!file.exists()&&!new File(file.getPath()+".bak").exists())return null;try(InputStream in=new AtomicFile(file).openRead()){return new JSONObject(new String(readBytes(in),StandardCharsets.UTF_8));}}
     static byte[] readBytes(InputStream in) throws IOException {ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1){if(out.size()+n>20*1024*1024)throw new IOException("Watch data exceeds the transfer limit.");out.write(buffer,0,n);}return out.toByteArray();}
     static void write(File file,JSONObject data) throws IOException {AtomicFile f=new AtomicFile(file);FileOutputStream stream=null;try{stream=f.startWrite();stream.write(data.toString().getBytes(StandardCharsets.UTF_8));f.finishWrite(stream);}catch(IOException e){if(stream!=null)f.failWrite(stream);throw e;}}
     static void checkIncoming(Context context,java.util.function.Consumer<String> done){Context c=context.getApplicationContext();IO.execute(()->{try{
