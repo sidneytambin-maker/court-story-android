@@ -13,7 +13,7 @@ public class WatchStorageTest extends InstrumentationTestCase {
     Context isolated;
     @Override protected void setUp() throws Exception {
         super.setUp();
-        final File dir=new File(getInstrumentation().getContext().getCacheDir(),"watch-storage-"+System.nanoTime());
+        final File dir=new File(getInstrumentation().getTargetContext().getCacheDir(),"watch-storage-"+System.nanoTime());
         assertTrue(dir.mkdirs());
         isolated=new ContextWrapper(getInstrumentation().getTargetContext()) {
             @Override public Context getApplicationContext(){return this;}

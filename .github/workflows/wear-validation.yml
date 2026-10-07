@@ -71,6 +71,7 @@ jobs:
           mkdir -p evidence
           timeout 10s adb logcat -b all -d -s AndroidRuntime ActivityManager ActivityTaskManager art libc lmkd TestRunner ActivityThread System.err > evidence/crashes-final.txt 2>/dev/null || true
           timeout 10s adb exec-out screencap -p > evidence/watch-final.png 2>/dev/null || true
+          timeout 20s adb pull /sdcard/Android/data/com.courtstory.app.qa/files evidence/watch-screens || true
           timeout 10s adb emu kill || true
       - uses: actions/upload-artifact@v4
         if: always()

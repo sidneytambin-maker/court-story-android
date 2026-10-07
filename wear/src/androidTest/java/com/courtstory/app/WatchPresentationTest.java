@@ -67,6 +67,10 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
                         for(com.google.android.apps.common.testing.accessibility.framework.AccessibilityHierarchyCheckResult result:check.runCheckOnHierarchy(hierarchy.get()))
                             if(result.getType()==com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResult.AccessibilityCheckResultType.ERROR)errors.add(check.getClass().getSimpleName()+": "+result.getMessage(java.util.Locale.UK));
                     assertTrue(role+" / "+tier+" / "+a.screenName+": "+errors,errors.isEmpty());
+                    android.graphics.Bitmap screenshot=getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).takeScreenshot();
+                    assertNotNull("Capture the rendered watch screen",screenshot);
+                    String filename="watch-"+role+"-"+tier+"-"+a.screenName.replaceAll("[^A-Za-z0-9]+","-")+".png";
+                    try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(a.getExternalFilesDir(null),filename))){screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}finally{screenshot.recycle();}
                 }
             }
         }finally{Store restore=new Store(a);restore.data=original;restore.save();}
@@ -79,16 +83,16 @@ public class WatchPresentationTest extends ActivityInstrumentationTestCase2<Watc
                 a.store.data=Domain.newLibrary();org.json.JSONObject player=Domain.obj();
                 Domain.put(player,"id",Domain.id());Domain.put(player,"name","Synthetic watch tester");Domain.put(player,"sport","Tennis");
                 Domain.table(a.store.data,"players").put(player);Domain.put(a.store.data,"selectedPlayerID",player.optString("id"));
-                org.json.JSONObject record=a.newRecord("trainingSessions");Domain.put(record,"id","watch-sensor-test");Domain.put(record,"androidScheduled",true);
+                org.json.JSONObject record=a.newRecord("trainingSessions");Domain.put(record,"id","00000000-0000-4000-8000-000000000032");Domain.put(record,"androidScheduled",true);
                 assertTrue(a.saveRecord("trainingSessions",record));a.home();
-                WatchTraining.command(a,"start","watch-sensor-test");
+                WatchTraining.command(a,"start","00000000-0000-4000-8000-000000000032");
             });
             waitPhase("Active");Thread.sleep(5000);
-            runTestOnUiThread(()->WatchTraining.command(a,"pause","watch-sensor-test"));waitPhase("Paused");
-            runTestOnUiThread(()->WatchTraining.command(a,"resume","watch-sensor-test"));waitPhase("Active");Thread.sleep(5000);
-            runTestOnUiThread(()->WatchTraining.command(a,"finish","watch-sensor-test"));waitPhase("Ended");
+            runTestOnUiThread(()->WatchTraining.command(a,"pause","00000000-0000-4000-8000-000000000032"));waitPhase("Paused");long paused=WatchTraining.state(a).optLong("durationSeconds");Thread.sleep(2000);assertEquals("Paused duration must not advance",paused,WatchTraining.state(a).optLong("durationSeconds"));
+            runTestOnUiThread(()->WatchTraining.command(a,"resume","00000000-0000-4000-8000-000000000032"));waitPhase("Active");Thread.sleep(5000);
+            runTestOnUiThread(()->WatchTraining.command(a,"finish","00000000-0000-4000-8000-000000000032"));waitPhase("Ended");
             for(int i=0;i<100;i++){org.json.JSONObject s=WatchTransport.read(new java.io.File(a.getFilesDir(),"watch-workout.json"));if(s.optBoolean("committed"))break;Thread.sleep(100);}
-            Store saved=new Store(a);org.json.JSONObject result=Domain.find(saved.table("trainingSessions"),"watch-sensor-test");
+            Store saved=new Store(a);org.json.JSONObject result=Domain.find(saved.table("trainingSessions"),"00000000-0000-4000-8000-000000000032");
             assertNotNull(result);assertFalse(result.optString("actualFinish").isEmpty());
             assertEquals("Wear OS Health Services",Domain.object(result,"workout").optString("source"));
             assertTrue("Recorded active duration",Domain.object(result,"workout").optLong("durationSeconds")>=5);
