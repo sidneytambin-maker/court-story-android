@@ -43,9 +43,10 @@ public final class CourtGlance {
         int sessions=0,minutes=0,matches=0,wins=0;
         for(JSONObject r:scoped.get("trainingSessions")){long began=millis(r,"actualStart");if(began==0)began=millis(r,"date");if(status("trainingSessions",r).equals("Completed")&&!active(r)&&began>=start&&finished("trainingSessions",r)<=now){sessions++;minutes+=duration(r);}}
         for(JSONObject r:scoped.get("matches")){long end=finished("matches",r);if(status("matches",r).equals("Completed")&&end>=start&&end<=now&&r.optString("trainingSessionID").isEmpty()){matches++;if(r.optString("result").equals("Win"))wins++;}}
-        String text=sessions+" training sessions, "+minutes+" minutes. "+matches+" matches, "+wins+" wins.";
+        String text=count(sessions,"training session","training sessions")+", "+count(minutes,"minute","minutes")+". "+count(matches,"match","matches")+", "+count(wins,"win","wins")+".";
         return new CourtGlance("Week",minutes+"m",sessions+" sessions · "+matches+" matches","This week, Monday to Sunday. "+sport+". "+text,"","","watchWeek");
     }
+    static String count(int number,String singular,String plural){return number+" "+(number==1?singular:plural);}
     static CourtGlance activity(String t,JSONObject r,String kind,long now){
         String title=kind.equals("current")?"Now":kind.equals("next")?"Next":kind.equals("startTraining")?"Training":"Latest",compact,detail=summary(t,r);
         if(kind.equals("startTraining")){compact="Start";detail="Start scheduled training. "+detail;}
