@@ -16,6 +16,8 @@ final class RecordDetails {
             if(!table.equals("matches")&&key.equals("matchFormat"))continue;
             if(table.equals("players")&&CustomScore.custom(ProfileSetup.sport(record))&&(key.equals("defaultMatchFormat")||key.equals("preferredMatchType")))continue;
             if(table.equals("matches")&&CustomScore.custom(record)&&(key.startsWith("custom")||Arrays.asList("matchFormat","matchType","sightLevel","allowedBounces","suddenDeathDeuce","yourSetsWon","opponentSetsWon").contains(key)))continue;
+            if(table.equals("trainingSessions")&&java.util.Arrays.asList("effortLevel","confidenceLevel","energyLevel","painLevel").contains(key)&&!SessionRatings.included(record))continue;
+            if(key.equals("expectedDurationMinutes")&&!record.optBoolean("hasExpectedDuration",record.has(key)))continue;
             String value=raw instanceof Boolean?((Boolean)raw?"Yes":"No"):String.valueOf(raw);
             if(key.toLowerCase(Locale.ROOT).contains("date")||key.equals("actualStart")||key.equals("actualFinish"))value=date(record,key,key.startsWith("actual")||record.optBoolean("hasStartTime"));
             if(key.equals("durationMinutes")||key.equals("expectedDurationMinutes"))value+=" minutes";

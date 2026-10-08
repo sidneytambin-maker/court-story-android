@@ -12,7 +12,7 @@ final class TrackingMode {
     static final Set<String> POWER_SECTIONS=new HashSet<>(Arrays.asList("Advanced match statistics","Wellness"));
     static boolean section(Store store,String name){return (!GUIDED_SECTIONS.contains(name)||guided(store))&&(!POWER_SECTIONS.contains(name)||power(store));}
     static final Set<String> GUIDED_FIELDS=new HashSet<>(Arrays.asList("goal","primaryGoal","preferredSurface","developmentNotes","nextReviewDate","coachingFocus","sessionObjectives","plannedDrills","equipmentPlan","adaptations","successMeasures","coachReview","opponentStyle","pressureMoment","matchStory","nextPracticeFocus","matchStrengths","matchNeedsWork","notes","focus","additionalFocus","surface","courtSurface","effortLevel","confidenceLevel","sessionOutcome","matchConditions","expectedDurationMinutes","coachingSessionGoals"));
-    static final Set<String> POWER_FIELDS=new HashSet<>(Arrays.asList("aces","doubleFaults","winners","unforcedErrors","energyLevel","painLevel"));
+    static final Set<String> POWER_FIELDS=new HashSet<>(Arrays.asList("aces","doubleFaults","winners","unforcedErrors","energyLevel","painLevel","effortLevel","confidenceLevel"));
     static boolean field(Store store,String key){return (!GUIDED_FIELDS.contains(key)||guided(store))&&(!POWER_FIELDS.contains(key)||power(store));}
     static String description(){return "Basic: core records, live scoring and results. Standard: adds goals, plans, reflections and media feedback. Power: adds statistics, wellness, trends and measured drills. Changing mode keeps all saved data.";}
 }

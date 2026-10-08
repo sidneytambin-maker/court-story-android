@@ -2,6 +2,7 @@ package com.courtstory.app;
 import android.content.Context;
 import com.google.android.gms.wearable.*;
 public final class WatchSyncService extends WearableListenerService {
+    @Override public void onCapabilityChanged(CapabilityInfo capability){if(capability.getName().equals("court_story_library")&&!capability.getNodes().isEmpty())WatchAutoSend.retry(this);}
     @Override public void onDataChanged(DataEventBuffer events){
         for(DataEvent event:events)
             if(event.getType()==DataEvent.TYPE_CHANGED&&event.getDataItem().getUri().getPath()!=null&&event.getDataItem().getUri().getPath().startsWith(WatchTransport.PATH))

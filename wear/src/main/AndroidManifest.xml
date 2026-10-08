@@ -20,6 +20,7 @@
         <receiver android:name=".ReminderReceiver" android:exported="false"/>
         <receiver android:name=".BootReceiver" android:exported="true"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter></receiver>
         <service android:name=".WatchSyncService" android:exported="true">
+            <intent-filter><action android:name="com.google.android.gms.wearable.CAPABILITY_CHANGED"/><data android:scheme="wear" android:host="*" android:path="/court_story_library"/></intent-filter>
             <intent-filter><action android:name="com.google.android.gms.wearable.DATA_CHANGED"/><data android:scheme="wear" android:host="*" android:pathPrefix="/court-story/library/"/></intent-filter>
         </service>
         <receiver android:name=".WatchGlanceReceiver" android:exported="false"/>

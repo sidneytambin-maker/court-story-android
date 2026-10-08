@@ -6,6 +6,7 @@ import static org.junit.Assert.*;
 import static com.courtstory.app.Domain.*;
 
 public class WatchMergeTest {
+    @Test public void remoteSettingsTransferAndConcurrentChangesNeedReview() throws Exception {JSONObject base=library(),local=copy(base),remote=copy(base);put(object(remote,"settings"),"theme","Classic");JSONObject merged=WatchMerge.merge(local,remote,base);assertEquals("Classic",object(merged,"settings").optString("theme"));put(object(local,"settings"),"theme","High Contrast");merged=WatchMerge.merge(local,remote,base);assertEquals("High Contrast",object(merged,"settings").optString("theme"));assertEquals("settings",array(merged,"androidWatchConflicts").optJSONObject(0).optString("table"));assertEquals("Classic",array(merged,"androidWatchConflicts").optJSONObject(0).optJSONObject("incoming").optString("theme"));}
     JSONObject library(){JSONObject d=newLibrary(),p=obj();put(p,"id",id());put(p,"name","Test wearer");table(d,"players").put(p);put(d,"selectedPlayerID",p.optString("id"));return d;}
     JSONObject match(JSONObject d){JSONObject m=obj();put(m,"id",id());put(m,"playerID",d.optString("selectedPlayerID"));put(m,"status","Completed");put(m,"date","2026-01-01T12:00:00Z");table(d,"matches").put(m);return m;}
     @Test public void firstConnectionCopiesWithoutAliasing() throws Exception {JSONObject remote=library(),result=WatchMerge.merge(newLibrary(),remote,null);assertTrue(WatchMerge.same(remote,result));put(result,"test",true);assertFalse(remote.has("test"));}

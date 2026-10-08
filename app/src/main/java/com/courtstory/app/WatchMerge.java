@@ -25,6 +25,8 @@ final class WatchMerge {
             for(JSONObject r:incoming.values()){String id=r.optString("id");if(!deleted.contains(id))target.put(copy(r));else{JSONObject base=baseline==null?null:find(table(baseline,t),id);if(base==null||!same(r,base))throw new IOException("A record deleted here was edited on the other device. Review both copies before synchronising. Neither library was changed.");}}
             if(Arrays.asList("coaches","venues","locations","tournamentTemplates").contains(t))put(object(result,"setup"),t,target);else put(result,t,target);
         }
+        JSONObject ownSettings=object(local,"settings"),remoteSettings=object(remote,"settings"),baseSettings=baseline==null?null:object(baseline,"settings");
+        if(!same(ownSettings,remoteSettings)){if(baseSettings!=null&&same(ownSettings,baseSettings))put(result,"settings",copy(remoteSettings));else if(baseSettings==null||!same(remoteSettings,baseSettings))conflict(conflicts,"settings","settings",ownSettings,remoteSettings);}
         put(result,"deletedRecordIDs",new JSONArray(deleted));String validation=validate(result,false);if(validation!=null)throw new IOException("Sync needs review: "+validation+" Both original libraries are retained.");return result;
     }
     static void conflict(JSONArray conflicts,String table,String id,JSONObject local,JSONObject remote){for(JSONObject existing:rows(conflicts))if(existing.optString("table").equals(table)&&existing.optString("recordID").equals(id)&&same(existing.optJSONObject("incoming"),remote))return;JSONObject c=obj();put(c,"id",id());put(c,"table",table);put(c,"recordID",id);put(c,"local",copy(local));put(c,"incoming",remote==null?JSONObject.NULL:copy(remote));conflicts.put(c);}

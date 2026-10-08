@@ -28,7 +28,7 @@ final class CoachMetrics {
             for(CoachInsights.Metrics m:subjects(all,r)){
                 if(!status("trainingSessions",r).equals("Completed")){m.planned++;continue;}if(when>now)continue;
                 m.sessions++;m.minutes+=duration(r);if(!r.optString("sessionOutcome").trim().isEmpty()||!r.optString("notes").trim().isEmpty())m.reflections++;
-                String focus=r.optString("focus","Not specified");m.focus.put(focus,m.focus.getOrDefault(focus,0)+1);
+                TrainingProgress.count(m.focus,r);
             }
         }
         return all;

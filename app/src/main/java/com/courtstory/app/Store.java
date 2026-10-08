@@ -27,6 +27,7 @@ public final class Store {
             if(!java.util.Arrays.equals(savedBytes,current))throw new IOException("Your saved records changed while this screen was open. Refresh the screen before saving again. Your existing records are safe.");
             byte[] next=data.toString().getBytes(StandardCharsets.UTF_8);
             FileOutputStream stream=null;try{stream=file.startWrite();stream.write(next);file.finishWrite(stream);savedBytes=next;}catch(IOException e){if(stream!=null)file.failWrite(stream);throw e;}}
+        WatchAutoSend.changed(context);
         try{if(context.getPackageManager().hasSystemFeature("android.hardware.type.watch"))context.sendBroadcast(new android.content.Intent().setClassName(context,"com.courtstory.app.WatchGlanceReceiver"));else CourtWidget.refresh(context);}catch(RuntimeException ignored){/* Widget refresh cannot undo a successful atomic save. */}
     }
     public JSONObject settings(){return object(data,"settings");}
@@ -49,6 +50,9 @@ public final class Store {
             for(JSONObject session:rows(table("trainingSessions"))){JSONObject practice=session.optJSONObject("practiceResult");if(practice!=null)for(String key:new String[]{"partnerID","opponentID","opponent2ID"})if(practice.optString(key).equals(id))practice.remove(key);}
         }
         for(String t:new String[]{"matches","trainingSessions","tournaments","coaches","venues","tournamentTemplates"})for(JSONObject row:rows(table(t))){for(String k:new String[]{"tournamentID","trainingSessionID","venueID","templateID","opponentID","partnerID","opponent2ID"})if(row.optString(k).equals(id))row.remove(k);JSONObject c=row.optJSONObject("context");if(c!=null){for(String k:new String[]{"venueID","tournamentID"})if(c.optString(k).equals(id))c.remove(k);for(String k:new String[]{"coachIDs","participantIDs"}){JSONArray list=array(c,k);for(int i=list.length()-1;i>=0;i--)if(list.optString(i).equals(id))list.remove(i);}}}try{save();}catch(IOException e){data=old;throw e;}}
+    public void removeTournament(JSONObject tournament,boolean includeMatches) throws IOException {
+        JSONObject before=copy(data);try{if(includeMatches){JSONArray matches=table("matches");for(JSONObject match:rows(matches))if(match.optString("tournamentID").equals(tournament.optString("id"))&&active(match))throw new IOException("Finish linked active matches before deleting this tournament and its matches.");for(int n=matches.length()-1;n>=0;n--){JSONObject match=matches.optJSONObject(n);if(match.optString("tournamentID").equals(tournament.optString("id"))){array(data,"deletedRecordIDs").put(match.optString("id"));matches.remove(n);}}}remove("tournaments",tournament);}catch(IOException|RuntimeException e){data=before;throw e;}
+    }
     public void restore(JSONObject imported) throws IOException {String issue=validate(imported,imported.optInt("androidBackupFormat")!=1);if(issue!=null)throw new IOException(issue);if(table("players").length()>0)throw new IOException("Restore into an empty library only. Your records have not been changed.");JSONObject old=data;data=imported;try{save();}catch(IOException e){data=old;throw e;}}
 }
 
