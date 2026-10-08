@@ -81,7 +81,7 @@ jobs:
           adb shell am instrument -w -r -e class com.courtstory.app.WatchStorageTest,com.courtstory.app.WatchPresentationTest com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/watch-tests.txt
           adb exec-out screencap -p > evidence/watch-screen.png
           adb logcat -b all -d -s AndroidRuntime ActivityManager ActivityTaskManager art libc lmkd TestRunner ActivityThread System.err > evidence/crashes.txt
-          grep -q 'OK (18 tests)' evidence/watch-tests.txt
+          grep -q 'OK (19 tests)' evidence/watch-tests.txt
           ! grep -q 'FATAL EXCEPTION' evidence/crashes.txt
       - name: Collect diagnostics
         if: always()

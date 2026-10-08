@@ -7,6 +7,14 @@ import static com.courtstory.app.Domain.*;
 
 /** Storage, platform and health release regressions. QA package only. */
 public class ReleaseAuditTest extends DeviceFlowTest {
+    public void testTournamentTimingSurvivesReloadAndProtectsActiveOwner() throws Exception {
+        seed();ui(()->{for(String mode:new String[]{"Basic","Standard","Power"}){
+            put(a.store.player(),"trackingMode",mode);JSONObject tournament=a.newRecord("tournaments");put(tournament,"name","QA Timed "+mode);a.saveRecord("tournaments",tournament);a.detail("tournaments",tournament);assertNotNull(findButton(a.root,"Start tournament timing"));findButton(a.root,"Start tournament timing").performClick();
+            JSONObject running=find(a.store.table("tournaments"),tournament.optString("id"));assertTrue(active(running));assertEquals("In progress",status("tournaments",running));try{Store loaded=new Store(a);assertTrue(active(find(loaded.table("tournaments"),tournament.optString("id"))));a.store.remove("players",a.store.player());fail("Active tournament must protect its owner");}catch(IOException expected){assertTrue(expected.getMessage().contains("active activity"));}
+            assertFalse(ProfileHistory.has(a.store.data));JSONObject second=a.newRecord("tournaments");put(second,"name","QA Other");a.saveRecord("tournaments",second);TournamentTiming.start(a,second);assertFalse(active(find(a.store.table("tournaments"),second.optString("id"))));
+            TournamentTiming.finish(a,running);JSONObject done=find(a.store.table("tournaments"),tournament.optString("id"));assertEquals("Completed",status("tournaments",done));assertTrue(millis(done,"actualFinish")>=millis(done,"actualStart"));assertNull(findButton(a.root,"Start tournament timing"));
+        }});
+    }
     public void testRestoredBackupKeepsRecordsButRejectsOldWatchIdentity() throws Exception {
         seed();JSONObject backup=copy(a.store.data);String originalID=backup.optString("libraryID"),recordID=a.store.player().optString("id");String original=WatchMerge.canonical(backup);
         ui(()->{a.store.data=newLibrary();a.save();try{a.store.restore(backup);}catch(IOException e){throw new AssertionError(e);}});
