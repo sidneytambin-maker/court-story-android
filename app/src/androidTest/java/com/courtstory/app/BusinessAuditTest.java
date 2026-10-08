@@ -11,6 +11,14 @@ import static com.courtstory.app.Domain.*;
 
 /** Release acceptance scenarios in the separate QA app, never the owner's library. */
 public class BusinessAuditTest extends AuditFlowTest {
+    public void testQuickRoutesIgnoreFutureResultsAndKeepTodayTournaments(){seed();ui(()->{
+        JSONObject past=a.newRecord("matches");put(past,"date",java.time.Instant.now().minusSeconds(7200).toString());put(past,"status","Completed");put(past,"result","Win");a.saveRecord("matches",past);
+        JSONObject future=a.newRecord("matches");put(future,"date",java.time.Instant.now().plusSeconds(86400).toString());put(future,"status","Scheduled");a.saveRecord("matches",future);
+        QuickActions.open(a,"recentRecord");assertEquals(past.optString("id"),a.screenRecord);
+        JSONObject event=a.newRecord("tournaments");String today=java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toString();put(event,"date",today);put(event,"endDate",today);put(event,"finalResult","Entered");a.saveRecord("tournaments",event);
+        QuickActions.open(a,"nextTournament");assertEquals(event.optString("id"),a.screenRecord);
+        put(event,"finalResult","Completed");a.saveRecord("tournaments",event);QuickActions.open(a,"nextTournament");assertFalse(event.optString("id").equals(a.screenRecord));
+    });}
     public void testSelectedNavigationLabelsFitWithoutBrokenWords() throws Exception {
         seed();for(String selected:new String[]{"Today","Players","Progress","More"}){ui(()->{mode("Coach","Power");a.page("QA Navigation","");a.navigation(selected);});getInstrumentation().waitForIdleSync();accessibilityHierarchy();ui(()->{for(int i=0;i<a.nav.getChildCount();i++){android.view.ViewGroup row=(android.view.ViewGroup)a.nav.getChildAt(i);for(int j=0;j<row.getChildCount();j++){TextView tab=(TextView)row.getChildAt(j);assertNotNull(tab.getLayout());assertEquals("Navigation must not split a word: "+tab.getText(),1,tab.getLineCount());}}});}
     }
@@ -50,7 +58,7 @@ public class BusinessAuditTest extends AuditFlowTest {
         Map<String,ReportFormats.Result> totals=ReportFormats.build(a.store.data,a.store.player(),"Tennis",-2025);assertEquals(1,totals.get("Doubles").count);assertEquals(1,totals.get("Doubles").wins);assertEquals(0,totals.get("Doubles").losses);assertEquals(1,totals.get("Doubles").practice);assertEquals(1,totals.get("Singles").unknown);assertEquals(1,totals.get("Singles").count);
         try{a.store.remove("matches",linked);}catch(IOException e){throw new AssertionError(e);}totals=ReportFormats.build(a.store.data,a.store.player(),"Tennis",-2025);assertEquals(1,totals.get("Doubles").count);assertEquals(1,totals.get("Doubles").losses);
     });}
-    public void testCustomProgressDoesNotIntroduceTennisFormats(){seed();ui(()->{JSONObject person=copy(a.store.player());SportProfiles.select(person,"Goalball");a.saveRecord("players",person);JSONObject event=a.newRecord("matches");CustomScore.defaults(event);put(event,"status","Completed");put(event,"result","Draw");put(event,"date",java.time.Instant.now().minusSeconds(60).toString());a.saveRecord("matches",event);a.reports();String text=visibleText(a.root);assertTrue(text.contains("Results by event format"));assertTrue(text.contains("Team events"));assertFalse(text.contains("Singles"));assertFalse(text.contains("Doubles"));Map<String,ReportFormats.Result> result=ReportFormats.build(a.store.data,a.store.player(),"Goalball",0);assertEquals(1,result.get("Team events").draws);});}
+    public void testCustomProgressDoesNotIntroduceTennisFormats(){seed();ui(()->{JSONObject person=copy(a.store.player());SportProfiles.select(person,"Goalball");a.saveRecord("players",person);JSONObject event=a.newRecord("matches");CustomScore.defaults(event);put(event,"finalResult","Completed");put(event,"result","Draw");put(event,"date",java.time.Instant.now().minusSeconds(60).toString());a.saveRecord("matches",event);a.reports();String text=visibleText(a.root);assertTrue(text.contains("Results by event format"));assertTrue(text.contains("Team events"));assertFalse(text.contains("Singles"));assertFalse(text.contains("Doubles"));Map<String,ReportFormats.Result> result=ReportFormats.build(a.store.data,a.store.player(),"Goalball",0);assertEquals(1,result.get("Team events").draws);});}
     public void testScoringWriteFailureKeepsUndoAndRetryAccurate() throws Exception {
         seed();final Store real=a.store;final Scoring[] score={null};
         ui(()->{JSONObject r=a.newRecord("matches");score[0]=new Scoring(r);score[0].point(true);score[0].point(true);a.saveRecord("matches",r);});
