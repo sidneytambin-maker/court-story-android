@@ -50,6 +50,8 @@ jobs:
           echo 'hw.lcd.circular=true' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'vm.heapSize=256' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
           echo 'hw.rotaryInput=yes' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          # Create the ADB host key before the signed emulator reads it at boot.
+          adb start-server
           mkdir -p evidence
           "$ANDROID_HOME/emulator/emulator" -avd CourtStoryWear4 -no-window -no-audio -no-boot-anim -no-snapshot -gpu software -memory 1536 -cores 2 >evidence/emulator.log 2>&1 &
           timeout 180s adb wait-for-device
