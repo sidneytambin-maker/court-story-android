@@ -3,7 +3,10 @@
 # validation exercises the shipping optimizer configuration. Names and method
 # bodies may still be optimized; third-party libraries remain fully shrinkable.
 -keep,allowoptimization,allowobfuscation class com.courtstory.app.** { *; }
--keep,allowoptimization,allowobfuscation class androidx.core.os.BuildCompat { public *; }
+# Accessibility Test Framework's Material/AppCompat widgets implement Core
+# interfaces even when the app uses platform widgets. Preserve that shared API
+# contract for the separately loaded test APK on older Android class loaders.
+-keep,allowoptimization,allowobfuscation class androidx.core.** { public *; protected *; }
 
 # APIs consumed by the separately compiled accessibility and health/complication
 # assertions. Preserve their public contract in release as well as validation;
