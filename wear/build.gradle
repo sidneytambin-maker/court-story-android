@@ -32,7 +32,7 @@ android {
             }
         }
     }
-    buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'); signingConfig unsignedValidation ? null : signingConfigs.release }; qa { initWith debug; applicationIdSuffix '.qa'; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['debug'] }; optimized { initWith release; applicationIdSuffix '.qa'; signingConfig signingConfigs.debug; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['release']; testProguardFiles '../test-rules.pro' } }; testBuildType providers.gradleProperty('courtStoryOptimizedTests').getOrElse('false').toBoolean() ? 'optimized' : 'qa'
+    buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../proguard-rules.pro'; signingConfig unsignedValidation ? null : signingConfigs.release }; qa { initWith debug; applicationIdSuffix '.qa'; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['debug'] }; optimized { initWith release; applicationIdSuffix '.qa'; signingConfig signingConfigs.debug; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['release']; testProguardFiles '../test-rules.pro' } }; testBuildType providers.gradleProperty('courtStoryOptimizedTests').getOrElse('false').toBoolean() ? 'optimized' : 'qa'
     sourceSets { main { java.srcDirs += ['../app/src/main/java']; res.srcDirs += ['../app/src/main/res']; assets.srcDirs += ['../app/src/main/assets'] } }
     lint { abortOnError true }
 
