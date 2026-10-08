@@ -21,12 +21,15 @@ jobs:
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - name: Build without private signing keys
         run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' -PcourtStoryVersion=1.0 -PcourtStoryUnsignedValidation=true :app:testQaUnitTest :app:assembleQa :app:assembleQaAndroidTest :wear:assembleQa :wear:assembleQaAndroidTest :app:assembleRelease :app:bundleRelease :wear:assembleRelease :wear:bundleRelease :app:lintRelease :wear:lintRelease
+      - name: Record resolved release dependencies
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx1g -Dfile.encoding=UTF-8' :app:dependencies --configuration releaseRuntimeClasspath :wear:dependencies --configuration releaseRuntimeClasspath > release-dependencies.txt
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: court-story-unsigned-validation
           retention-days: 7
           path: |
+            release-dependencies.txt
             app/build/outputs/apk/qa/*.apk
             app/build/outputs/apk/androidTest/qa/*.apk
             app/build/outputs/apk/release/*.apk

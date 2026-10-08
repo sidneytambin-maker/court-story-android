@@ -16,8 +16,8 @@ android {
         applicationId 'com.courtstory.app'
         minSdk 28
         targetSdk 36
-        versionCode 11
-        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.11')
+        versionCode 12
+        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.12')
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     kotlinOptions { jvmTarget = '17' }
@@ -35,7 +35,7 @@ android {
     buildTypes { release { minifyEnabled false; signingConfig unsignedValidation ? null : signingConfigs.release }; qa { initWith debug; applicationIdSuffix '.qa'; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['debug'] } }; testBuildType 'qa'
     lint { abortOnError true }
 }
-dependencies { implementation 'com.google.android.gms:play-services-wearable:20.0.1'; implementation 'androidx.activity:activity-ktx:1.9.3'; implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'; implementation 'androidx.health.connect:connect-client:1.1.0'; androidTestImplementation 'com.google.guava:guava:31.0.1-android'; androidTestImplementation 'com.google.android.apps.common.testing.accessibility.framework:accessibility-test-framework:4.1.1'; testImplementation 'junit:junit:4.13.2'; testImplementation 'org.json:json:20240303' }
+dependencies { implementation 'androidx.fragment:fragment:1.8.9'; implementation 'com.google.android.gms:play-services-wearable:20.0.1'; implementation 'androidx.activity:activity-ktx:1.9.3'; implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'; implementation 'androidx.health.connect:connect-client:1.1.0'; androidTestImplementation 'com.google.guava:guava:31.0.1-android'; androidTestImplementation 'com.google.android.apps.common.testing.accessibility.framework:accessibility-test-framework:4.1.1'; testImplementation 'junit:junit:4.13.2'; testImplementation 'org.json:json:20240303' }
 
 
 

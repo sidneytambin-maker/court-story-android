@@ -16,8 +16,8 @@ android {
         applicationId 'com.courtstory.app'
         minSdk 30
         targetSdk 36
-        versionCode 100011
-        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.11')
+        versionCode 100012
+        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.12')
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     kotlinOptions { jvmTarget = '17' }
@@ -37,7 +37,7 @@ android {
     lint { abortOnError true }
 
 }
-dependencies { implementation 'androidx.wear.watchface:watchface-complications-data-source-ktx:1.3.0'; implementation 'com.google.guava:guava:31.0.1-android'; implementation 'com.google.android.gms:play-services-wearable:20.0.1'; implementation 'androidx.health:health-services-client:1.1.0'; implementation 'androidx.activity:activity-ktx:1.9.3'; implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'; implementation 'androidx.health.connect:connect-client:1.1.0'; androidTestImplementation 'com.google.android.apps.common.testing.accessibility.framework:accessibility-test-framework:4.1.1'; testImplementation 'junit:junit:4.13.2'; testImplementation 'org.json:json:20240303' }
+dependencies { implementation 'androidx.wear.protolayout:protolayout-expression:1.4.2'; implementation 'androidx.wear.protolayout:protolayout-proto:1.4.2'; implementation 'androidx.wear.protolayout:protolayout-external-protobuf:1.4.2'; implementation 'androidx.fragment:fragment:1.8.9'; implementation 'androidx.wear.watchface:watchface-complications-data-source-ktx:1.3.0'; implementation 'com.google.guava:guava:31.0.1-android'; implementation 'com.google.android.gms:play-services-wearable:20.0.1'; implementation 'androidx.health:health-services-client:1.1.0'; implementation 'androidx.activity:activity-ktx:1.9.3'; implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'; implementation 'androidx.health.connect:connect-client:1.1.0'; androidTestImplementation 'com.google.android.apps.common.testing.accessibility.framework:accessibility-test-framework:4.1.1'; testImplementation 'junit:junit:4.13.2'; testImplementation 'org.json:json:20240303' }
 
 
 
