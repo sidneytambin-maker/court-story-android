@@ -30,6 +30,8 @@ jobs:
           retention-days: 7
           path: |
             release-dependencies.txt
+            app/build/outputs/mapping/release/
+            wear/build/outputs/mapping/release/
             app/build/outputs/apk/qa/*.apk
             app/build/outputs/apk/androidTest/qa/*.apk
             app/build/outputs/apk/release/*.apk

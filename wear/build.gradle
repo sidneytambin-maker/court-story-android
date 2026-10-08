@@ -16,8 +16,8 @@ android {
         applicationId 'com.courtstory.app'
         minSdk 30
         targetSdk 36
-        versionCode 100012
-        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.12')
+        versionCode 100013
+        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.13')
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     kotlinOptions { jvmTarget = '17' }
@@ -32,7 +32,7 @@ android {
             }
         }
     }
-    buildTypes { release { minifyEnabled false; signingConfig unsignedValidation ? null : signingConfigs.release }; qa { initWith debug; applicationIdSuffix '.qa'; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['debug'] } }; testBuildType 'qa'
+    buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'); signingConfig unsignedValidation ? null : signingConfigs.release }; qa { initWith debug; minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'); testProguardFiles '../test-rules.pro'; applicationIdSuffix '.qa'; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['debug'] } }; testBuildType 'qa'
     sourceSets { main { java.srcDirs += ['../app/src/main/java']; res.srcDirs += ['../app/src/main/res']; assets.srcDirs += ['../app/src/main/assets'] } }
     lint { abortOnError true }
 
