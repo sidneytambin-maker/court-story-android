@@ -37,7 +37,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-${{ matrix.api }};${{ matrix.tag }};x86_64'
       - name: Build and run shared unit tests
-        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :wear:assembleQa :wear:assembleQaAndroidTest :wear:lintQa
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' -PcourtStoryOptimizedTests=true :app:testQaUnitTest :wear:assembleOptimized :wear:assembleOptimizedAndroidTest :wear:lintQa
       - name: Start round Wear OS emulator
         shell: bash
         run: |
@@ -71,8 +71,8 @@ jobs:
       - name: Run watch storage, presentation and synthetic workout checks
         shell: bash
         run: |
-          adb install -r -g wear/build/outputs/apk/qa/wear-qa.apk
-          adb install -r wear/build/outputs/apk/androidTest/qa/wear-qa-androidTest.apk
+          adb install -r -g wear/build/outputs/apk/optimized/wear-optimized.apk
+          adb install -r wear/build/outputs/apk/androidTest/optimized/wear-optimized-androidTest.apk
           adb shell input keyevent KEYCODE_WAKEUP
           adb shell wm dismiss-keyguard
           adb shell am start -W -n com.courtstory.app.qa/com.courtstory.app.WatchActivity | tee evidence/watch-launch.txt

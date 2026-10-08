@@ -33,7 +33,7 @@ jobs:
       - name: Install Android tools
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-${{ matrix.api }};google_apis;x86_64'
       - name: Build and check phone app
-        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :app:assembleQa :app:assembleQaAndroidTest :app:lintQa
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' -PcourtStoryOptimizedTests=true :app:testQaUnitTest :app:assembleOptimized :app:assembleOptimizedAndroidTest :app:lintQa
       - name: Start phone emulator
         shell: bash
         run: |
@@ -57,8 +57,8 @@ jobs:
           VALIDATION_SCOPE: ${{ inputs.scope }}
         shell: bash
         run: |
-          adb install -r -g app/build/outputs/apk/qa/app-qa.apk
-          adb install -r app/build/outputs/apk/androidTest/qa/app-qa-androidTest.apk
+          adb install -r -g app/build/outputs/apk/optimized/app-optimized.apk
+          adb install -r app/build/outputs/apk/androidTest/optimized/app-optimized-androidTest.apk
           python3 - <<'PY'
           from pathlib import Path
           import re, os
