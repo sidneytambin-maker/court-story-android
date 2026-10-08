@@ -19,13 +19,13 @@ final class ReminderPlan {
         long delay=Math.max(1,Math.min(10080,settings.optInt("postSessionDelayMinutes",120)))*60000L;
         for(String table:new String[]{"matches","trainingSessions","tournaments"})for(JSONObject record:rows(table(library,table))){
             String id=record.optString("id"),state=status(table,record),toggle=table.equals("matches")?"matchRemindersEnabled":table.equals("trainingSessions")?"trainingRemindersEnabled":"tournamentRemindersEnabled";
-            if(settings.optBoolean(toggle)&&(state.equals("Scheduled")||state.equals("Entered")))result.add(new Item(table+":"+id,title(table,record),table,id,millis(record,"date")-lead));
-            if(table.equals("trainingSessions")&&settings.optBoolean("postSessionRemindersEnabled")&&state.equals("Completed")&&record.optString("sessionOutcome").trim().isEmpty()){
+            if((table.equals("tournaments")||record.optBoolean("hasStartTime",true))&&settings.optBoolean(toggle)&&(state.equals("Scheduled")||state.equals("Entered")))result.add(new Item(table+":"+id,title(table,record),table,id,millis(record,"date")-lead));
+            if(table.equals("trainingSessions")&&settings.optBoolean("postSessionRemindersEnabled")&&record.optBoolean("hasStartTime",true)&&!active(record)&&!state.equals("Cancelled")&&record.optString("notes").trim().isEmpty()&&record.optString("sessionOutcome").trim().isEmpty()){
                 long finish=millis(record,"actualFinish");if(finish==0)finish=millis(record,"date")+duration(record)*60000L;
                 result.add(new Item("reflect:"+id,"How did your training go?",table,id,finish+delay));
             }
-            if(table.equals("matches")&&settings.optBoolean("matchResultRemindersEnabled")&&!state.equals("Withdrawn")&&(record.optString("result").isEmpty()||record.optString("result").equals("Not recorded"))){
-                long finish=millis(record,"actualFinish");if(finish==0)finish=millis(record,"date")+Math.max(1,record.optInt("expectedDurationMinutes",90))*60000L;
+            if(table.equals("matches")&&record.optBoolean("hasStartTime",true)&&settings.optBoolean("matchResultRemindersEnabled")&&!state.equals("Withdrawn")&&(record.optString("result").isEmpty()||record.optString("result").equals("Not recorded"))){
+                long finish=millis(record,"actualFinish");if(finish==0)finish=(millis(record,"actualStart")>0?millis(record,"actualStart"):millis(record,"date"))+Math.max(1,record.optBoolean("hasExpectedDuration",record.has("expectedDurationMinutes"))?record.optInt("expectedDurationMinutes",120):120)*60000L;
                 result.add(new Item("result:"+id,"Record your match result",table,id,finish+delay));
             }
         }
