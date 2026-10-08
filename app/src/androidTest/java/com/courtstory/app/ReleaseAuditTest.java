@@ -7,6 +7,12 @@ import static com.courtstory.app.Domain.*;
 
 /** Storage, platform and health release regressions. QA package only. */
 public class ReleaseAuditTest extends DeviceFlowTest {
+    public void testRestoredBackupKeepsRecordsButRejectsOldWatchIdentity() throws Exception {
+        seed();JSONObject backup=copy(a.store.data);String originalID=backup.optString("libraryID"),recordID=a.store.player().optString("id");String original=WatchMerge.canonical(backup);
+        ui(()->{a.store.data=newLibrary();a.save();try{a.store.restore(backup);}catch(IOException e){throw new AssertionError(e);}});
+        Store restored=new Store(a);assertFalse(originalID.equals(restored.data.optString("libraryID")));assertNotNull(find(restored.table("players"),recordID));assertEquals(original,WatchMerge.canonical(backup));
+        try{WatchMerge.merge(restored.data,backup,backup);fail("An old watch must not merge into the restored installation");}catch(IOException expected){assertTrue(expected.getMessage().contains("different Court Story libraries"));}
+    }
     public void testDeleteSelectedProfileRepairsAllReferences() throws Exception {
         seed(); JSONObject removed=copy(a.store.player());
         ui(()->{

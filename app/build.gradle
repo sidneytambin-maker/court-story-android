@@ -16,8 +16,8 @@ android {
         applicationId 'com.courtstory.app'
         minSdk 28
         targetSdk 36
-        versionCode 10
-        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.10')
+        versionCode 11
+        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.11')
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     kotlinOptions { jvmTarget = '17' }
