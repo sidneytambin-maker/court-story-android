@@ -25,7 +25,7 @@ final class TournamentTiming {
         if(current==null){a.error("This tournament is no longer available.");return;}
         if(status("tournaments",current).equals("Completed")||status("tournaments",current).equals("Withdrawn")){a.detail("tournaments",current);return;}
         for(JSONObject other:rows(a.store.table("tournaments")))if(!other.optString("id").equals(current.optString("id"))&&other.optString("playerID").equals(current.optString("playerID"))&&active(other)){a.error("Finish this player’s active tournament before timing another.");return;}
-        JSONObject next=copy(current);if(millis(next,"actualStart")==0)put(next,"actualStart",now());next.remove("actualFinish");put(next,"finalResult","In progress");put(next,"hasExplicitStatus",true);
+        JSONObject next=copy(current);if(millis(next,"actualStart")==0||millis(next,"actualFinish")>0)put(next,"actualStart",now());next.remove("actualFinish");put(next,"finalResult","In progress");put(next,"hasExplicitStatus",true);
         if(a.saveRecord("tournaments",next)){a.detail("tournaments",next);a.announce("Tournament timing started");}
     }
     static void finish(MainActivity a,JSONObject record){

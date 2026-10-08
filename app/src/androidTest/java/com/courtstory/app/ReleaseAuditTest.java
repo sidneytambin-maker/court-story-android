@@ -13,6 +13,7 @@ public class ReleaseAuditTest extends DeviceFlowTest {
             JSONObject running=find(a.store.table("tournaments"),tournament.optString("id"));assertTrue(active(running));assertEquals("In progress",status("tournaments",running));try{Store loaded=new Store(a);assertTrue(active(find(loaded.table("tournaments"),tournament.optString("id"))));a.store.remove("players",a.store.player());fail("Active tournament must protect its owner");}catch(IOException expected){assertTrue(expected.getMessage().contains("active activity"));}
             assertFalse(ProfileHistory.has(a.store.data));JSONObject second=a.newRecord("tournaments");put(second,"name","QA Other");a.saveRecord("tournaments",second);TournamentTiming.start(a,second);assertFalse(active(find(a.store.table("tournaments"),second.optString("id"))));
             TournamentTiming.finish(a,running);JSONObject done=find(a.store.table("tournaments"),tournament.optString("id"));assertEquals("Completed",status("tournaments",done));assertTrue(millis(done,"actualFinish")>=millis(done,"actualStart"));assertNull(findButton(a.root,"Start tournament timing"));
+            TournamentTiming.start(a,second);JSONObject withdrawn=copy(find(a.store.table("tournaments"),second.optString("id")));put(withdrawn,"finalResult","Withdrawn");a.commit("tournaments",withdrawn);assertFalse(active(find(a.store.table("tournaments"),second.optString("id"))));
         }});
     }
     public void testRestoredBackupKeepsRecordsButRejectsOldWatchIdentity() throws Exception {
