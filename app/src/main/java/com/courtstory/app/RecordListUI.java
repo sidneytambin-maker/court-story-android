@@ -23,7 +23,7 @@ final class RecordListUI {
         TextView resultCount=a.text("",14,false);resultCount.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);a.body.addView(resultCount,a.lp());LinearLayout results=a.column();a.body.addView(results);boolean activity=Arrays.asList("matches","trainingSessions","tournaments").contains(table);
         List<JSONObject> records;
         if(subject==null)records=activity?a.mine(table):rows(a.store.table(table));else{records=new ArrayList<>();for(JSONObject record:rows(a.store.table(table)))if(CoachInsights.includes(record,subject.optString("id"))&&record.optString("sport","Tennis").equals(ProfileSetup.sport(a.store.player())))records.add(record);records.sort(Comparator.comparingLong(record->millis(record,"date")));}
-        List<Row> ordered=new ArrayList<>();
+        if(activity)records.sort(RecordChronology::compare);List<Row> ordered=new ArrayList<>();
         for(String group:activity?new String[]{"In progress","Scheduled","Entered","Completed","Withdrawn"}:new String[]{""}){
             List<JSONObject> sorted=new ArrayList<>(records);if(group.equals("Completed"))Collections.reverse(sorted);
             for(JSONObject record:sorted)if(!activity||status(table,record).equals(group))ordered.add(new Row(table,record,activity));
