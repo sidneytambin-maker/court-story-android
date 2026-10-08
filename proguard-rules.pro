@@ -3,6 +3,7 @@
 # validation exercises the shipping optimizer configuration. Names and method
 # bodies may still be optimized; third-party libraries remain fully shrinkable.
 -keep,allowoptimization,allowobfuscation class com.courtstory.app.** { *; }
+-keep,allowoptimization,allowobfuscation class androidx.core.os.BuildCompat { public *; }
 
 # APIs consumed by the separately compiled accessibility and health/complication
 # assertions. Preserve their public contract in release as well as validation;
