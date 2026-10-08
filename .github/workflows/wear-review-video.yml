@@ -1,0 +1,110 @@
+name: Wear workout review video
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wear:
+    runs-on: ubuntu-24.04
+    env:
+      ANDROID_AVD_HOME: /tmp/court-story-avd
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Wear7
+            api: '37.0'
+            tag: android-wear-signed
+            size: 384
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android tools
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-${{ matrix.api }};${{ matrix.tag }};x86_64'
+      - name: Build and run shared unit tests
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :wear:assembleQa :wear:assembleQaAndroidTest :wear:lintQa
+      - name: Start round Wear OS emulator
+        shell: bash
+        run: |
+          sudo chmod 666 /dev/kvm
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | avdmanager create avd --name CourtStoryWear4 --package 'system-images;android-${{ matrix.api }};${{ matrix.tag }};x86_64'
+          echo 'hw.lcd.width=${{ matrix.size }}' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.height=${{ matrix.size }}' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.density=320' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.lcd.circular=true' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'vm.heapSize=256' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          echo 'hw.rotaryInput=yes' >> "$ANDROID_AVD_HOME/CourtStoryWear4.avd/config.ini"
+          mkdir -p evidence
+          "$ANDROID_HOME/emulator/emulator" -avd CourtStoryWear4 -no-window -no-audio -no-boot-anim -no-snapshot -gpu software -memory 1536 -cores 2 >evidence/emulator.log 2>&1 &
+          timeout 180s adb wait-for-device
+          for attempt in $(seq 1 180); do
+            if [[ "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
+            sleep 2
+          done
+          test "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
+          adb shell settings put global device_provisioned 1
+          adb shell settings put secure user_setup_complete 1
+          adb shell dumpsys battery unplug
+          adb shell dumpsys deviceidle disable
+          adb shell settings put system screen_off_timeout 1800000
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell wm dismiss-keyguard
+          sleep 10
+      - name: Run watch storage, presentation and synthetic workout checks
+        shell: bash
+        run: |
+          adb install -r -g wear/build/outputs/apk/qa/wear-qa.apk
+          adb install -r wear/build/outputs/apk/androidTest/qa/wear-qa-androidTest.apk
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell wm dismiss-keyguard
+          adb shell am start -W -n com.courtstory.app.qa/com.courtstory.app.WatchActivity | tee evidence/watch-launch.txt
+          sleep 3
+          adb exec-out screencap -p > evidence/watch-welcome.png
+          adb shell am instrument -w -r -e class com.courtstory.app.WatchStorageTest,com.courtstory.app.WatchPresentationTest com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/watch-tests.txt
+          adb exec-out screencap -p > evidence/watch-screen.png
+          adb logcat -b all -d -s AndroidRuntime ActivityManager ActivityTaskManager art libc lmkd TestRunner ActivityThread System.err > evidence/crashes.txt
+          grep -q 'OK (17 tests)' evidence/watch-tests.txt
+          ! grep -q 'FATAL EXCEPTION' evidence/crashes.txt
+      - name: Record foreground workout review evidence
+        shell: bash
+        run: |
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell screenrecord --time-limit 120 /sdcard/court-story-workout.mp4 >evidence/recording.log 2>&1 &
+          recorder=$!
+          sleep 2
+          adb shell am instrument -w -r -e class com.courtstory.app.WatchPermissionDemoTest#testForegroundWorkoutReviewerDemo com.courtstory.app.qa.test/android.test.InstrumentationTestRunner | tee evidence/workout-review-test.txt
+          adb shell pkill -2 screenrecord || true
+          wait "$recorder" || true
+          adb pull /sdcard/court-story-workout.mp4 evidence/Court-Story-Wear-Workout-Demo.mp4
+          grep -q 'OK (1 test)' evidence/workout-review-test.txt
+          test -s evidence/Court-Story-Wear-Workout-Demo.mp4
+      - name: Collect diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p evidence
+          timeout 10s adb logcat -b all -d -s AndroidRuntime ActivityManager ActivityTaskManager art libc lmkd TestRunner ActivityThread System.err > evidence/crashes-final.txt 2>/dev/null || true
+          timeout 10s adb exec-out screencap -p > evidence/watch-final.png 2>/dev/null || true
+          timeout 20s adb pull /sdcard/Android/data/com.courtstory.app.qa/files evidence/watch-screens || true
+          timeout 10s adb emu kill || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wear-review-video-${{ matrix.name }}
+          retention-days: 7
+          path: |
+            evidence/
+            app/build/test-results/testQaUnitTest/
+            wear/build/reports/lint-results-qa.*
