@@ -18,6 +18,7 @@ public class WatchStorageTest extends InstrumentationTestCase {
         isolated=new ContextWrapper(getInstrumentation().getTargetContext()) {
             @Override public Context getApplicationContext(){return this;}
             @Override public File getFilesDir(){return dir;}
+            @Override public android.content.SharedPreferences getSharedPreferences(String name,int mode){return super.getSharedPreferences(dir.getName()+"-"+name,mode);}
         };
     }
     public void testStaleEditorCannotEraseBackgroundSave() throws Exception {
@@ -43,5 +44,12 @@ public class WatchStorageTest extends InstrumentationTestCase {
     public void testTransportReadsUtf8OnOlderAndroid() throws Exception {
         byte[] expected="Court Story · entraînement".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(java.util.Arrays.equals(expected,WatchTransport.readBytes(new java.io.ByteArrayInputStream(expected))));
+    }
+    public void testDisabledConnectionIgnoresTransferWithoutFalseReadyStatus() throws Exception {
+        android.content.SharedPreferences prefs=isolated.getSharedPreferences("watch-connection",0);
+        prefs.edit().putBoolean("enabled",false).putString("status","Connection disabled").commit();
+        WatchSyncService.receiveItem(isolated,null);
+        assertEquals("Connection disabled",prefs.getString("status",""));
+        assertFalse(WatchTransport.inbox(isolated).exists());
     }
 }
