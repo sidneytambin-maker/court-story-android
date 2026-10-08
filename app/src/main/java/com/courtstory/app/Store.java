@@ -42,7 +42,7 @@ public final class Store {
             upsert(data,"trainingSessions",session);save();
         } catch(IOException | RuntimeException error){data=old;throw error;}
     }
-    public void remove(String table,JSONObject r) throws IOException {JSONObject old=copy(data);String id=r.optString("id");if(table.equals("players"))for(String owned:new String[]{"matches","trainingSessions","tournaments"})for(JSONObject activity:rows(table(owned)))if(activity.optString("playerID").equals(id))throw new IOException("This player owns activity records. Keep the profile to preserve their history.");JSONArray a=table(table);for(int i=a.length()-1;i>=0;i--)if(a.optJSONObject(i).optString("id").equals(id))a.remove(i);array(data,"deletedRecordIDs").put(id);
+    public void remove(String table,JSONObject r) throws IOException {JSONObject old=copy(data);String id=r.optString("id");if(table.equals("players")){for(String owned:new String[]{"matches","trainingSessions"})for(JSONObject activity:rows(table(owned)))if(activity.optString("playerID").equals(id)&&active(activity))throw new IOException("Finish this player’s active activity before removing the profile.");ProfileHistory.retain(data,r);}JSONArray a=table(table);for(int i=a.length()-1;i>=0;i--)if(a.optJSONObject(i).optString("id").equals(id))a.remove(i);array(data,"deletedRecordIDs").put(id);
         if(table.equals("players")){
             if(data.optString("selectedPlayerID").equals(id)){JSONObject next=table("players").optJSONObject(0);put(data,"selectedPlayerID",next==null?null:next.optString("id"));}
             for(JSONObject coach:rows(table("coaches")))if(coach.optString("playerID").equals(id))coach.remove("playerID");
@@ -53,7 +53,7 @@ public final class Store {
     public void removeTournament(JSONObject tournament,boolean includeMatches) throws IOException {
         JSONObject before=copy(data);try{if(includeMatches){JSONArray matches=table("matches");for(JSONObject match:rows(matches))if(match.optString("tournamentID").equals(tournament.optString("id"))&&active(match))throw new IOException("Finish linked active matches before deleting this tournament and its matches.");for(int n=matches.length()-1;n>=0;n--){JSONObject match=matches.optJSONObject(n);if(match.optString("tournamentID").equals(tournament.optString("id"))){array(data,"deletedRecordIDs").put(match.optString("id"));matches.remove(n);}}}remove("tournaments",tournament);}catch(IOException|RuntimeException e){data=before;throw e;}
     }
-    public void restore(JSONObject imported) throws IOException {String issue=validate(imported,imported.optInt("androidBackupFormat")!=1);if(issue!=null)throw new IOException(issue);if(table("players").length()>0)throw new IOException("Restore into an empty library only. Your records have not been changed.");JSONObject old=data;data=imported;try{save();}catch(IOException e){data=old;throw e;}}
+    public void restore(JSONObject imported) throws IOException {String issue=validate(imported,imported.optInt("androidBackupFormat")!=1);if(issue!=null)throw new IOException(issue);if(!ProfileHistory.empty(data))throw new IOException("Restore into an empty library only. Your records have not been changed.");JSONObject old=data;data=imported;try{save();}catch(IOException e){data=old;throw e;}}
 }
 
 

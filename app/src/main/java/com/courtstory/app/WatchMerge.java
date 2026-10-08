@@ -12,7 +12,7 @@ final class WatchMerge {
     static boolean same(JSONObject a,JSONObject b){return canonical(a).equals(canonical(b));}
     static JSONObject merge(JSONObject local,JSONObject remote,JSONObject baseline) throws IOException {
         String issue=validate(remote,false);if(issue!=null)throw new IOException(issue);
-        if(table(local,"players").length()==0)return copy(remote);
+        if(ProfileHistory.empty(local))return copy(remote);
         if(!local.optString("libraryID").equals(remote.optString("libraryID")))throw new IOException("These devices contain different Court Story libraries. Back up both before connecting them; neither library was replaced.");
         JSONObject result=copy(local);JSONArray conflicts=array(result,"androidWatchConflicts");Set<String> deleted=new HashSet<>();for(JSONObject d:new JSONObject[]{local,remote})for(int i=0;i<array(d,"deletedRecordIDs").length();i++)deleted.add(array(d,"deletedRecordIDs").optString(i));
         for(String t:TABLES){Map<String,JSONObject> incoming=new LinkedHashMap<>();for(JSONObject r:rows(table(remote,t)))incoming.put(r.optString("id"),r);JSONArray target=new JSONArray();
@@ -27,7 +27,7 @@ final class WatchMerge {
         }
         JSONObject ownSettings=object(local,"settings"),remoteSettings=object(remote,"settings"),baseSettings=baseline==null?null:object(baseline,"settings");
         if(!same(ownSettings,remoteSettings)){if(baseSettings!=null&&same(ownSettings,baseSettings))put(result,"settings",copy(remoteSettings));else if(baseSettings==null||!same(remoteSettings,baseSettings))conflict(conflicts,"settings","settings",ownSettings,remoteSettings);}
-        put(result,"deletedRecordIDs",new JSONArray(deleted));String validation=validate(result,false);if(validation!=null)throw new IOException("Sync needs review: "+validation+" Both original libraries are retained.");return result;
+        ProfileHistory.merge(result,local,remote);String chosen=result.optString("selectedPlayerID");if(find(table(result,"players"),chosen)==null){JSONObject next=table(result,"players").optJSONObject(0);put(result,"selectedPlayerID",next==null?null:next.optString("id"));}put(result,"deletedRecordIDs",new JSONArray(deleted));String validation=validate(result,false);if(validation!=null)throw new IOException("Sync needs review: "+validation+" Both original libraries are retained.");return result;
     }
     static void conflict(JSONArray conflicts,String table,String id,JSONObject local,JSONObject remote){for(JSONObject existing:rows(conflicts))if(existing.optString("table").equals(table)&&existing.optString("recordID").equals(id)&&same(existing.optJSONObject("incoming"),remote))return;JSONObject c=obj();put(c,"id",id());put(c,"table",table);put(c,"recordID",id);put(c,"local",copy(local));put(c,"incoming",remote==null?JSONObject.NULL:copy(remote));conflicts.put(c);}
 }

@@ -18,7 +18,7 @@ final class ReminderPlan {
         long lead=Math.max(0,Math.min(10080,settings.optInt("reminderLeadMinutes",60)))*60000L;
         long delay=Math.max(1,Math.min(10080,settings.optInt("postSessionDelayMinutes",120)))*60000L;
         for(String table:new String[]{"matches","trainingSessions","tournaments"})for(JSONObject record:rows(table(library,table))){
-            String id=record.optString("id"),state=status(table,record),toggle=table.equals("matches")?"matchRemindersEnabled":table.equals("trainingSessions")?"trainingRemindersEnabled":"tournamentRemindersEnabled";
+            if(find(array(library,ProfileHistory.KEY),record.optString("playerID"))!=null)continue;String id=record.optString("id"),state=status(table,record),toggle=table.equals("matches")?"matchRemindersEnabled":table.equals("trainingSessions")?"trainingRemindersEnabled":"tournamentRemindersEnabled";
             if((table.equals("tournaments")||record.optBoolean("hasStartTime",true))&&settings.optBoolean(toggle)&&(state.equals("Scheduled")||state.equals("Entered")))result.add(new Item(table+":"+id,title(table,record),table,id,millis(record,"date")-lead));
             if(table.equals("trainingSessions")&&settings.optBoolean("postSessionRemindersEnabled")&&record.optBoolean("hasStartTime",true)&&!active(record)&&!state.equals("Cancelled")&&record.optString("notes").trim().isEmpty()&&record.optString("sessionOutcome").trim().isEmpty()){
                 long finish=millis(record,"actualFinish");if(finish==0)finish=millis(record,"date")+duration(record)*60000L;

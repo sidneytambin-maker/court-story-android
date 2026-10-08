@@ -81,7 +81,7 @@ public final class BackupOperation extends AndroidViewModel {
     void commit(){
         if(state!=State.READY||staged==null)return;BackupArchive.Staged input=staged;staged=null;change(State.RESTORING);
         new Thread(()->{try{
-            Store target=new Store(getApplication());if(target.table("players").length()>0)throw new IOException("Your library is no longer empty. Nothing was restored.");
+            Store target=new Store(getApplication());if(!ProfileHistory.empty(target.data))throw new IOException("Your library is no longer empty. Nothing was restored.");
             for(String name:BackupArchive.media(input.library))Files.copy(new File(input.directory,name).toPath(),MediaLibrary.file(getApplication(),name).toPath(),StandardCopyOption.REPLACE_EXISTING);
             target.restore(input.library);main.post(()->{if(!cleared)change(State.RESTORED);});
         }catch(Exception e){main.post(()->{if(!cleared)error(e);});}finally{BackupArchive.discard(input.directory);}},"CourtStory-restore").start();

@@ -30,7 +30,7 @@ final class BackupArchive {
 
     static long copyLimited(InputStream in,OutputStream out,long limit)throws IOException{byte[] buffer=new byte[65536];long total=0;int n;while((n=in.read(buffer))!=-1){total+=n;if(total>limit)throw new IOException("This file exceeds the supported size limit.");out.write(buffer,0,n);}return total;}
 
-    static Set<String> media(JSONObject library)throws IOException{Set<String> names=new LinkedHashSet<>();for(JSONObject p:rows(table(library,"players")))for(JSONObject m:rows(array(p,"androidMedia"))){String name=m.optString("fileName");if(!name.matches("[A-Fa-f0-9-]{36}\\.bin"))throw new IOException("The library has an invalid media reference.");names.add(name);}return names;}
+    static Set<String> media(JSONObject library)throws IOException{Set<String> names=new LinkedHashSet<>();for(JSONObject p:ProfileHistory.all(library))for(JSONObject m:rows(array(p,"androidMedia"))){String name=m.optString("fileName");if(!name.matches("[A-Fa-f0-9-]{36}\\.bin"))throw new IOException("The library has an invalid media reference.");names.add(name);}return names;}
 
     static void write(Context context,JSONObject library,OutputStream output)throws IOException{try(ZipOutputStream zip=new ZipOutputStream(output)){put(library,"androidBackupFormat",1);zip.putNextEntry(new ZipEntry("library.json"));zip.write(library.toString().getBytes(StandardCharsets.UTF_8));zip.closeEntry();long total=0;for(String name:media(library)){File source=MediaLibrary.file(context,name);if(!source.isFile())throw new IOException("A media file is missing. The backup was not completed.");zip.putNextEntry(new ZipEntry("media/"+name));try(InputStream in=new FileInputStream(source)){total+=copyLimited(in,zip,200_000_000);}if(total>1_000_000_000L)throw new IOException("The media library exceeds the 1 GB backup limit.");zip.closeEntry();}}}
 
@@ -51,5 +51,5 @@ final class BackupArchive {
 
     static void discard(File stage){File[] files=stage.listFiles();if(files!=null)for(File f:files)if(f.isFile())f.delete();stage.delete();}
 
-    static void restore(MainActivity a,Uri uri){if(a.store.table("players").length()>0){a.error("Restore into an empty library only. Your records have not been changed.");return;}BackupOperation.get(a).restore(uri);}
+    static void restore(MainActivity a,Uri uri){if(!ProfileHistory.empty(a.store.data)){a.error("Restore into an empty library only. Your records have not been changed.");return;}BackupOperation.get(a).restore(uri);}
 }
