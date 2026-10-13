@@ -1,6 +1,9 @@
 plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
 // Explicit cloud validation produces unsigned files; signing remains local.
 def unsignedValidation = providers.gradleProperty('courtStoryUnsignedValidation').getOrElse('false').toBoolean()
+// Verified HTTPS invitations use the same host as the client parser.
+def connectConfigFile = file('src/main/assets/CourtConnectConfig.json')
+def connectLinkHost = connectConfigFile.isFile() ? new groovy.json.JsonSlurper().parse(connectConfigFile).link_host : 'unconfigured.invalid'
 def releaseSigning = new Properties()
 def releaseSigningFile = System.getenv('COURT_STORY_SIGNING_PROPERTIES')
 if (releaseSigningFile != null) {
@@ -14,10 +17,11 @@ android {
     useLibrary 'android.test.mock'
     defaultConfig {
         applicationId 'com.courtstory.app'
+        manifestPlaceholders = [connectLinkHost: connectLinkHost]
         minSdk 28
         targetSdk 36
-        versionCode 15
-        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.15')
+        versionCode 16
+        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.16')
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     kotlinOptions { jvmTarget = '17' }
