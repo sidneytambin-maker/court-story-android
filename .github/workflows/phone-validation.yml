@@ -1,12 +1,6 @@
-name: Android phone validation
+name: Court Story Connect Android validation
 on:
   workflow_dispatch:
-    inputs:
-      scope:
-        description: Regression scope
-        type: choice
-        default: full
-        options: [full, recovery]
 permissions:
   contents: read
 jobs:
@@ -33,7 +27,7 @@ jobs:
       - name: Install Android tools
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-${{ matrix.api }};google_apis;x86_64'
       - name: Build and check phone app
-        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' -PcourtStoryOptimizedTests=true :app:testQaUnitTest :app:assembleOptimized :app:assembleOptimizedAndroidTest :app:lintQa
+        run: gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8' :app:testQaUnitTest :app:assembleQa :app:assembleQaAndroidTest :app:lintQa
       - name: Start phone emulator
         shell: bash
         run: |
@@ -51,28 +45,19 @@ jobs:
           adb shell settings put global device_provisioned 1
           adb shell settings put secure user_setup_complete 1
           adb shell input keyevent 82
-      - name: Run full phone regression suite
+      - name: Run Connect phone regression suite
         timeout-minutes: 15
-        env:
-          VALIDATION_SCOPE: ${{ inputs.scope }}
         shell: bash
         run: |
-          adb install -r -g app/build/outputs/apk/optimized/app-optimized.apk
-          adb install -r app/build/outputs/apk/androidTest/optimized/app-optimized-androidTest.apk
+          adb install -r -g app/build/outputs/apk/qa/app-qa.apk
+          adb install -r app/build/outputs/apk/androidTest/qa/app-qa-androidTest.apk
           python3 - <<'PY'
           from pathlib import Path
           import re, os
           root=Path('app/src/androidTest/java/com/courtstory/app')
-          classes=['com.courtstory.app.AuditFlowTest','com.courtstory.app.WatchStorageTest']
-          count=0
-          for name in ['DeviceFlowTest','AuditFlowTest','ReleaseAuditTest','BusinessAuditTest','WatchStorageTest']:
-              methods=re.findall(r'public void (test\w+)\(', (root/(name+'.java')).read_text())
-              count+=len(methods)
-              if name in ['ReleaseAuditTest','BusinessAuditTest']:
-                  classes.extend('com.courtstory.app.'+name+'#'+method for method in methods)
-          if os.environ.get('VALIDATION_SCOPE') == 'recovery':
-              classes=['com.courtstory.app.WatchStorageTest','com.courtstory.app.BusinessAuditTest#testReminderDeliveredByAndroidOpensCorrectRecord']
-              count=5
+          methods=re.findall(r'public void (test\w+)\(', (root/'ConnectFlowTest.java').read_text())
+          classes=['com.courtstory.app.ConnectFlowTest#'+method for method in methods]
+          count=len(classes)
           Path('evidence/native-classes.txt').write_text(','.join(classes))
           Path('evidence/expected-tests.txt').write_text(str(count))
           PY
@@ -89,7 +74,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: phone-validation-${{ matrix.api }}
+          name: connect-phone-validation-${{ matrix.api }}
           retention-days: 7
           path: |
             evidence/
