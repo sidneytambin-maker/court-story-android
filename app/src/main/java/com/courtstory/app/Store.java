@@ -28,6 +28,7 @@ public final class Store {
             byte[] next=data.toString().getBytes(StandardCharsets.UTF_8);
             FileOutputStream stream=null;try{stream=file.startWrite();stream.write(next);file.finishWrite(stream);savedBytes=next;}catch(IOException e){if(stream!=null)file.failWrite(stream);throw e;}}
         WatchAutoSend.changed(context);
+        ConnectClient.changed(context,data);
         try{if(context.getPackageManager().hasSystemFeature("android.hardware.type.watch"))context.sendBroadcast(new android.content.Intent().setClassName(context,"com.courtstory.app.WatchGlanceReceiver"));else CourtWidget.refresh(context);}catch(RuntimeException ignored){/* Widget refresh cannot undo a successful atomic save. */}
     }
     public JSONObject settings(){return object(data,"settings");}

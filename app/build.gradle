@@ -33,9 +33,10 @@ android {
         }
     }
     buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../proguard-rules.pro'; signingConfig unsignedValidation ? null : signingConfigs.release }; qa { initWith debug; applicationIdSuffix '.qa'; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['debug'] }; optimized { initWith release; applicationIdSuffix '.qa'; signingConfig signingConfigs.debug; resValue 'string', 'app_name', 'Court Story Test Data'; matchingFallbacks = ['release']; testProguardFiles '../test-rules.pro' } }; testBuildType providers.gradleProperty('courtStoryOptimizedTests').getOrElse('false').toBoolean() ? 'optimized' : 'qa'
+    sourceSets { main { java.srcDirs += ['src/phone/java'] } }
     lint { abortOnError true }
 }
-dependencies { androidTestImplementation 'androidx.test.services:storage:1.5.0'; androidTestImplementation 'com.google.auto.value:auto-value-annotations:1.11.0'; implementation 'androidx.fragment:fragment:1.8.9'; implementation 'com.google.android.gms:play-services-wearable:20.0.1'; implementation 'androidx.activity:activity-ktx:1.9.3'; implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'; implementation 'androidx.health.connect:connect-client:1.1.0'; androidTestImplementation 'com.google.guava:guava:31.0.1-android'; androidTestImplementation 'com.google.android.apps.common.testing.accessibility.framework:accessibility-test-framework:4.1.1'; testImplementation 'junit:junit:4.13.2'; testImplementation 'org.json:json:20240303' }
+dependencies { implementation 'com.google.firebase:firebase-messaging:25.1.3'; androidTestImplementation 'androidx.test.services:storage:1.5.0'; androidTestImplementation 'com.google.auto.value:auto-value-annotations:1.11.0'; implementation 'androidx.fragment:fragment:1.8.9'; implementation 'com.google.android.gms:play-services-wearable:20.0.1'; implementation 'androidx.activity:activity-ktx:1.9.3'; implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'; implementation 'androidx.health.connect:connect-client:1.1.0'; androidTestImplementation 'com.google.guava:guava:31.0.1-android'; androidTestImplementation 'com.google.android.apps.common.testing.accessibility.framework:accessibility-test-framework:4.1.1'; testImplementation 'junit:junit:4.13.2'; testImplementation 'org.json:json:20240303' }
 
 
 
@@ -44,6 +45,23 @@ tasks.configureEach { task ->
     if (task.name in ['validateSigningRelease', 'packageReleaseBundle', 'packageRelease']) {
         task.doFirst {
             if (!unsignedValidation && releaseSigning.isEmpty()) throw new GradleException('Configure COURT_STORY_SIGNING_PROPERTIES with your private upload-key properties before making a release.')
+        }
+    }
+}
+// A signed Connect release must contain only public client configuration.
+tasks.configureEach { task ->
+    if (task.name in ['validateSigningRelease', 'packageReleaseBundle', 'packageRelease']) {
+        task.doFirst {
+            if (!unsignedValidation) {
+                def configFile = file('src/main/assets/CourtConnectConfig.json')
+                if (!configFile.isFile()) throw new GradleException('Connect release requires production service and push configuration.')
+                def config = new groovy.json.JsonSlurper().parse(configFile)
+                def allowed = ['supabase_url','publishable_key','link_host','firebase_app_id','firebase_api_key','firebase_project_id','firebase_sender_id'] as Set
+                if (!(config instanceof Map) || config.keySet() != allowed) throw new GradleException('Connect configuration contains missing or unexpected fields.')
+                if (config.supabase_url != 'https://vfgxingpburwhrjbibvf.supabase.co' || !(config.publishable_key ==~ /sb_publishable_[A-Za-z0-9_-]{20,200}/)) throw new GradleException('Connect requires the approved project and a public publishable key.')
+                if (!(config.link_host ==~ /[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+/) || config.link_host.endsWith('.invalid')) throw new GradleException('Connect requires a production invitation domain.')
+                if (!(config.firebase_app_id ==~ /1:[0-9]+:android:[a-f0-9]+/) || !(config.firebase_api_key ==~ /AIza[A-Za-z0-9_-]{30,50}/) || !(config.firebase_project_id ==~ /[a-z][a-z0-9-]{4,28}[a-z0-9]/) || !(config.firebase_sender_id ==~ /[0-9]{5,20}/)) throw new GradleException('Connect requires valid public Firebase client configuration.')
+            }
         }
     }
 }
