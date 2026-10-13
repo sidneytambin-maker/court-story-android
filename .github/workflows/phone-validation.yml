@@ -35,7 +35,7 @@ jobs:
           mkdir -p "$ANDROID_AVD_HOME"
           echo no | avdmanager create avd --name CourtStoryPhone --package 'system-images;android-${{ matrix.api }};google_apis;x86_64' --device pixel_6
           mkdir -p evidence
-          "$ANDROID_HOME/emulator/emulator" -avd CourtStoryPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 >evidence/emulator.log 2>&1 &
+          "$ANDROID_HOME/emulator/emulator" -avd CourtStoryPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 4096 -cores 4 >evidence/emulator.log 2>&1 &
           timeout 180s adb wait-for-device
           for attempt in $(seq 1 180); do
             if [[ "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; then break; fi
@@ -44,6 +44,11 @@ jobs:
           test "$(timeout 5s adb shell getprop sys.boot_completed | tr -d '\r')" == "1"
           adb shell settings put global device_provisioned 1
           adb shell settings put secure user_setup_complete 1
+          adb shell wm size 720x1600
+          adb shell wm density 320
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
           adb shell input keyevent 82
       - name: Run Connect phone regression suite
         timeout-minutes: 15
