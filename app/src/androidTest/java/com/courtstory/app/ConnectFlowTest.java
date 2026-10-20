@@ -27,7 +27,7 @@ public final class ConnectFlowTest extends DeviceFlowTest {
  }
  public void testIncomingInvitationGoesStraightToReviewWithoutUpload(){
   seed();String before=a.store.data.toString();String code="b".repeat(64);
-  ui(()->{a.handleIntent(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://court-story-connect.web.app/connect/invite#"+code)));assertNotNull(findButton(a.root,"Continue to invitation"));assertFalse(findText(a.root,"Upload consent on this device"));audit(a.root);assertEquals(code,a.getSharedPreferences("connect",0).getString("pending",""));findButton(a.root,"Not now").performClick();});assertEquals(before,a.store.data.toString());
+  ui(()->{a.handleIntent(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://court-story-connect.web.app/connect/invite#"+code)));assertNotNull(findButton(a.root,"Accept invitation"));assertNotNull(findButton(a.root,"Decline invitation"));assertNull(findButton(a.root,"Continue to invitation"));assertFalse(findText(a.root,"Upload consent on this device"));audit(a.root);assertEquals(code,a.getSharedPreferences("connect",0).getString("pending",""));findButton(a.root,"Not now").performClick();});assertEquals(before,a.store.data.toString());
  }
  public void testBothInvitationRolesHaveClearDecisions(){seed();for(String role:new String[]{"player","coach"}){JSONObject preview=obj();put(preview,"name","Synthetic sender");put(preview,"role",role);put(preview,"sport","Tennis");ui(()->{ConnectUI.invitationDecision(a,"c".repeat(64),preview);assertNotNull(findButton(a.root,"Accept invitation"));assertNotNull(findButton(a.root,"Decline invitation"));assertNotNull(findButton(a.root,"Not now"));audit(a.root);});}}
 

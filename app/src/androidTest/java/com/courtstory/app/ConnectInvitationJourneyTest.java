@@ -55,6 +55,10 @@ public final class ConnectInvitationJourneyTest extends DeviceFlowTest {
  }
  void open(String action){ui(()->a.handleIntent(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://court-story-connect.firebaseapp.com/connect/invite#"+CODE+"/"+action))));}
  void awaitResult(String text)throws Exception {long until=android.os.SystemClock.uptimeMillis()+15000;while(android.os.SystemClock.uptimeMillis()<until){getInstrumentation().waitForIdleSync();if(ConnectClient.get(a).status.startsWith(text))return;Thread.sleep(30);}fail("Expected "+text+" but got "+ConnectClient.get(a).status);}
+ public void testFirstUseAcceptUsesOneResponseTap()throws Exception {
+  seed();ui(()->{a.handleIntent(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://court-story-connect.web.app/connect/invite#"+CODE)));assertNotNull(findButton(a.root,"Accept invitation"));assertNotNull(findButton(a.root,"Decline invitation"));assertNull(findButton(a.root,"Continue to invitation"));findButton(a.root,"Accept invitation").performClick();});
+  awaitResult("Invitation accepted.");assertEquals("accept",fixture.response);assertEquals(1,fixture.responses);assertEquals(0,fixture.uploads);
+ }
  public void testWebAcceptNeedsNoAdditionalTapAndNeverUploads()throws Exception {
   seed();String before=a.store.data.toString();open("accept");awaitResult("Invitation accepted.");
   assertEquals("accept",fixture.response);assertEquals(1,fixture.responses);assertEquals(0,fixture.uploads);assertEquals(before,a.store.data.toString());

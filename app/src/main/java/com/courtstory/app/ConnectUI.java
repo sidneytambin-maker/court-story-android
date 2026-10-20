@@ -56,8 +56,9 @@ final class ConnectUI {
         a.page("Connection invitation","Review, then accept or decline");
         a.note("No records are shared by opening or accepting an invitation. The player chooses what to share next.");
         if(!c.signedIn() && response.isEmpty()){
-            a.note("Continue to check who sent this invitation. No email or password is needed. This creates a secure connection on this device without uploading your library.");
-            a.primary("Continue to invitation",()->run(a,c::connectDevice,()->review(a,code)));
+            a.note("Choose your response. Court Story will check the invitation securely. No email or password is needed, and no sporting records are uploaded.");
+            a.primary("Accept invitation",()->review(a,code+"/accept"));
+            a.button("Decline invitation",()->review(a,code+"/decline"));
             a.button("Not now",()->{a.getSharedPreferences("connect",0).edit().remove("pending").apply();show(a);});
             return;
         }
