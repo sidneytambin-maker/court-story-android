@@ -20,20 +20,86 @@ final class ConnectUI {
 
     interface Action { void run() throws Exception; }
 
-    static void run(MainActivity a,Action action,Runnable done){ConnectClient c=ConnectClient.get(a);a.announce("Connecting");c.worker.execute(()->{try{action.run();a.runOnUiThread(()->{if(!a.isFinishing()&&!a.isDestroyed())done.run();});}catch(Exception e){a.runOnUiThread(()->{c.status=e.getMessage();if(!a.isFinishing())a.error(c.status);});}});}
+    private static final Set<android.view.View> pendingScreens=Collections.newSetFromMap(new WeakHashMap<>());
+    static void run(MainActivity a,Action action,Runnable done){
+        ConnectClient c=ConnectClient.get(a); android.view.View screen=a.root;
+        if(!pendingScreens.add(screen))return;
+        a.announce("Connecting");
+        c.worker.execute(()->{try{action.run();a.runOnUiThread(()->{
+            pendingScreens.remove(screen);
+            if(!a.isFinishing()&&!a.isDestroyed()&&a.root==screen)done.run();
+        });}catch(Exception e){a.runOnUiThread(()->{
+            pendingScreens.remove(screen);c.status=e.getMessage();
+            if(!a.isFinishing()&&!a.isDestroyed()&&a.root==screen)a.error(c.status);
+        });}});
+    }
 
     static String summary(JSONObject body){if(body==null)return "No sporting fields";List<String> keys=new ArrayList<>();body.keys().forEachRemaining(keys::add);Collections.sort(keys);List<String> text=new ArrayList<>();for(String key:keys)text.add(key.replaceAll("([a-z])([A-Z])","$1 $2").replace('_',' ')+": "+body.opt(key));return String.join(". ",text);}
     static CheckBox checkbox(MainActivity a){CheckBox box=new CheckBox(a);box.setMinHeight(a.dp(48));box.setMinimumHeight(a.dp(48));box.setPadding(a.dp(4),a.dp(8),a.dp(4),a.dp(8));return box;}
     static EditText field(MainActivity a,String label,String initial){TextView caption=a.text(label,16,false);a.body.addView(caption,a.lp());EditText e=new EditText(a);e.setId(android.view.View.generateViewId());caption.setLabelFor(e.getId());e.setText(initial);e.setHint(label);e.setMinHeight(a.dp(48));e.setMinimumHeight(a.dp(48));a.body.addView(e,a.lp());return e;}
 
+    static void pasteInvitation(MainActivity a) {
+        ClipboardManager clipboard=(ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
+        if(!clipboard.hasPrimaryClip() || clipboard.getPrimaryClip().getItemCount()==0){a.error("Copy the invitation link from your message first.");return;}
+        CharSequence text=clipboard.getPrimaryClip().getItemAt(0).coerceToText(a);
+        if(text==null){a.error("Copy the invitation link from your message first.");return;}
+        review(a,text.toString());
+    }
+    static void review(MainActivity a,String input) {
+        ConnectClient c=ConnectClient.get(a);
+        String code=ConnectProtocol.code(input,c.linkHost());
+        if(code==null){a.error("This invitation is incomplete. Copy the full link from your message, or ask for a new invitation.");return;}
+        String response=ConnectProtocol.response(input,c.linkHost());
+        String pending=code+(response.isEmpty()?"":"/"+response);
+        a.getSharedPreferences("connect",0).edit().putString("pending",pending).apply();
+        a.current=()->review(a,pending);
+        a.page("Connection invitation","Review, then accept or decline");
+        a.note("No records are shared by opening or accepting an invitation. The player chooses what to share next.");
+        if(!c.signedIn() && response.isEmpty()){
+            a.note("Continue to check who sent this invitation. No email or password is needed. This creates a secure connection on this device without uploading your library.");
+            a.primary("Continue to invitation",()->run(a,c::connectDevice,()->review(a,code)));
+            a.button("Not now",()->{a.getSharedPreferences("connect",0).edit().remove("pending").apply();show(a);});
+            return;
+        }
+        a.note("Checking invitation...");
+        final JSONObject[] preview={null};
+        run(a,()->{if(!c.signedIn())c.connectDevice();preview[0]=c.preview(code);},()->{
+            if(!pending.equals(a.getSharedPreferences("connect",0).getString("pending","")))return;
+            if(response.isEmpty())invitationDecision(a,code,preview[0]);
+            else respond(a,code,preview[0],response);
+        });
+        a.button("Try again",()->review(a,pending));
+        a.button("Not now",()->{a.getSharedPreferences("connect",0).edit().remove("pending").apply();show(a);});
+    }
+    static void invitationDecision(MainActivity a,String code,JSONObject preview) {
+        ConnectClient c=ConnectClient.get(a);
+        a.page("Connection invitation",preview.optString("name","Court Story member"));
+        boolean playerReceiving="coach".equals(preview.optString("role"));
+        a.note(playerReceiving?"Would like to coach you.":"Would like you to be their coach.");
+        a.note("Sport: "+preview.optString("sport"));
+        a.note("Accepting does not share records. The player chooses what to share next. Health data and media stay private.");
+        a.primary("Accept invitation",()->respond(a,code,preview,"accept"));
+        a.button("Decline invitation",()->respond(a,code,preview,"decline"));
+        a.button("Not now",()->{a.getSharedPreferences("connect",0).edit().remove("pending").apply();show(a);});
+    }
+    static void respond(MainActivity a,String code,JSONObject preview,String response) {
+        ConnectClient c=ConnectClient.get(a);
+        if("decline".equals(response)){run(a,()->c.decline(code),()->show(a));return;}
+        if(!"accept".equals(response))return;
+        JSONObject player=copy(a.store.player()); final String[] acceptedID={""};
+        run(a,()->acceptedID[0]=c.accept(code,player),()->{
+            if("coach".equals(preview.optString("role")))for(JSONObject row:rows(c.connections))if(row.optString("id").equals(acceptedID[0]) && row.optString("player_account").equalsIgnoreCase(c.account()) && row.optString("state").equals("pending") && row.optString("player_id").equalsIgnoreCase(player.optString("id")) && row.optString("sport").equals(preview.optString("sport"))){permission(a,row);return;}
+            show(a);
+        });
+    }
     static void show(MainActivity a){show(a,"");}
-    static void show(MainActivity a,String playerSearch){ConnectClient c=ConnectClient.get(a);a.current=()->show(a,playerSearch);a.page("Court Story Connect","Optional sharing with players and coaches");a.note(c.status);a.note("Enabling Connect never uploads your library. Health data and media are excluded. Keep personal information out of notes you choose to share.");
+    static void show(MainActivity a,String playerSearch){ConnectClient c=ConnectClient.get(a);String pendingInvitation=a.getSharedPreferences("connect",0).getString("pending","");if(!pendingInvitation.isEmpty()){review(a,pendingInvitation);return;}a.current=()->show(a,playerSearch);a.page("Court Story Connect","Optional sharing with players and coaches");a.note(c.status);a.button("Paste invitation",()->pasteInvitation(a));a.note("Enabling Connect never uploads your library. Health data and media are excluded. Keep personal information out of notes you choose to share.");
 
         if(!c.signedIn()){a.note("No email or password needed. Your connection is saved securely on this device. Share an invitation using any messaging app, or paste a link you received.");a.button("Enable Connect",()->run(a,c::connectDevice,()->show(a)));a.button("Back to local tracking",a::settings);return;}
 
         a.heading("Invitations");a.button("Invite a coach",()->invite(a,"player"));a.button("Request a player connection",()->invite(a,"coach"));
 
-        EditText incoming=field(a,"Invitation link or code",a.getSharedPreferences("connect",0).getString("pending",""));a.button("Review invitation",()->{String value=incoming.getText().toString();final JSONObject[] preview={null};run(a,()->preview[0]=c.preview(value),()->new AlertDialog.Builder(a).setTitle("Connection invitation").setMessage(preview[0].optString("name")+" - "+preview[0].optString("sport")+". Player approval is required before sharing. Your selected profile: "+playerName(a.store.player())).setPositiveButton("Accept",(d,w)->run(a,()->c.accept(value,a.store.player()),()->show(a))).setNeutralButton("Decline",(d,w)->run(a,()->c.decline(value),()->show(a))).setNegativeButton("Cancel",null).show());});
+        EditText incoming=field(a,"Invitation link or code","");a.button("Review invitation",()->review(a,incoming.getText().toString()));
 
         a.heading("Connections and approval");for(JSONObject connection:rows(c.connections))a.button(connection.optString("sport")+" - "+connection.optString("state")+" - "+connection.optString(connection.optString("player_account").equalsIgnoreCase(c.account())?"coach_name":"player_name","Court Story member"),()->permission(a,connection));a.button("Refresh connections",()->run(a,c::refresh,()->show(a)));
 
@@ -82,10 +148,12 @@ final class ConnectUI {
 
         EditText start=field(a,"Selected period from (YYYY-MM-DD)",(connection.isNull("history_start")?now().substring(0,4)+"-01-01":connection.optString("history_start").split("T")[0])),end=field(a,"Selected period through (YYYY-MM-DD)",(connection.isNull("history_end")?now().split("T")[0]:connection.optString("history_end").split("T")[0]));CheckBox future=checkbox(a);future.setText("Automatically share future records");future.setChecked(connection.optBoolean("future_sharing",true));a.body.addView(future,a.lp());Button access=a.button("Coach access: "+capability[0],()->{});access.setOnClickListener(v->new AlertDialog.Builder(a).setTitle("Coach access").setSingleChoiceItems(new String[]{"View only","Coach feedback","Suggest contributions for approval"},Arrays.asList("view","feedback","contribute").indexOf(capability[0]),(d,w)->{capability[0]=new String[]{"view","feedback","contribute"}[w];access.setText("Coach access: "+capability[0]);d.dismiss();}).setNegativeButton("Cancel",null).show());
 
-        a.button("Share all sporting data, including history",()->{for(CheckBox box:boxes)box.setChecked(true);history[0]="all";scope.setText("History: all history and future");future.setChecked(true);a.announce("All sporting categories, all history and automatic future sharing selected. Health, media and private records remain excluded. Press Approve and save sharing to confirm.");});
-        java.util.function.Consumer<String> save=state->{JSONObject p=obj();put(p,"p_id",connection.optString("id"));put(p,"p_state",state);put(p,"p_categories",new JSONArray(selected));put(p,"p_history",history[0]);put(p,"p_start",history[0].equals("period")?start.getText()+"T00:00:00Z":JSONObject.NULL);put(p,"p_end",history[0].equals("period")?end.getText()+"T23:59:59Z":JSONObject.NULL);put(p,"p_future",future.isChecked());put(p,"p_capability",capability[0]);run(a,()->{c.rpc("cs_set_permission",p);c.refresh();},()->show(a));};
+        a.button("Share all sporting data, including history",()->{for(CheckBox box:boxes)box.setChecked(true);history[0]="all";scope.setText("History: all history and future");future.setChecked(true);a.announce("All sporting categories, all history and automatic future sharing selected. Health, media and private records remain excluded. Press Approve and start sharing to confirm.");});
+        java.util.function.Consumer<String> save=state->{JSONObject p=obj();put(p,"p_id",connection.optString("id"));put(p,"p_state",state);put(p,"p_categories",new JSONArray(selected));put(p,"p_history",history[0]);put(p,"p_start",history[0].equals("period")?start.getText()+"T00:00:00Z":JSONObject.NULL);put(p,"p_end",history[0].equals("period")?end.getText()+"T23:59:59Z":JSONObject.NULL);put(p,"p_future",future.isChecked());put(p,"p_capability",capability[0]);JSONObject player=copy(a.store.player()),library=copy(a.store.data);
+            if(state.equals("active") && !player.optString("id").equalsIgnoreCase(connection.optString("player_id"))){a.error("Switch to the player profile named in this connection before sharing.");return;}
+            run(a,()->{c.rpc("cs_set_permission",p);if(state.equals("active"))c.enable(player,library);else c.refresh();},()->show(a));};
 
-        a.button("Approve and save sharing",()->save.accept("active"));a.button("Keep private / pause connection",()->save.accept("paused"));a.button("Revoke access",()->save.accept("revoked"));a.note("Revocation stops server access immediately. Copies already saved by a coach cannot necessarily be erased remotely.");a.button("Cancel",()->show(a));
+        a.note("Approving also uploads the selected sporting records from this device. You can pause or change sharing at any time.");a.button("Approve and start sharing",()->save.accept("active"));a.button("Keep private / pause connection",()->save.accept("paused"));a.button("Revoke access",()->save.accept("revoked"));a.note("Revocation stops server access immediately. Copies already saved by a coach cannot necessarily be erased remotely.");a.button("Cancel",()->show(a));
 
     }
 

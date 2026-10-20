@@ -8,8 +8,31 @@ import org.json.*;
 import static com.courtstory.app.Domain.*;
 /** Isolated QA navigation tests: synthetic records, no backend credentials or network mutations. */
 public final class ConnectFlowTest extends DeviceFlowTest {
+ public void testBrowserIntentPreservesFullInvitation() throws Exception {
+  String code="a".repeat(64);
+  String value="intent://court-story-connect.web.app/connect/invite#"+code+"#Intent;scheme=https;package=com.courtstory.app;S.browser_fallback_url=https%3A%2F%2Fcourt-story-connect.firebaseapp.com%2Fconnect%2Finvite%23"+code+";end";
+  android.content.Intent intent=android.content.Intent.parseUri(value,android.content.Intent.URI_INTENT_SCHEME);
+  assertEquals("com.courtstory.app",intent.getPackage());
+  assertEquals(code,ConnectProtocol.code(intent.getDataString(),"court-story-connect.web.app"));
+ }
+ public void testBrowserButtonsPreserveResponseInAndroidIntent() throws Exception {
+  String code="b".repeat(64);
+  for(String action:new String[]{"accept","decline"}){
+   String value="intent://court-story-connect.web.app/connect/invite#"+code+"/"+action+"#Intent;scheme=https;package=com.courtstory.app;end";
+   android.content.Intent intent=android.content.Intent.parseUri(value,android.content.Intent.URI_INTENT_SCHEME);
+   assertEquals("com.courtstory.app",intent.getPackage());
+   assertEquals(code,ConnectProtocol.code(intent.getDataString(),"court-story-connect.web.app"));
+   assertEquals(action,ConnectProtocol.response(intent.getDataString(),"court-story-connect.web.app"));
+  }
+ }
+ public void testIncomingInvitationGoesStraightToReviewWithoutUpload(){
+  seed();String before=a.store.data.toString();String code="b".repeat(64);
+  ui(()->{a.handleIntent(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://court-story-connect.web.app/connect/invite#"+code)));assertNotNull(findButton(a.root,"Continue to invitation"));assertFalse(findText(a.root,"Upload consent on this device"));audit(a.root);assertEquals(code,a.getSharedPreferences("connect",0).getString("pending",""));findButton(a.root,"Not now").performClick();});assertEquals(before,a.store.data.toString());
+ }
+ public void testBothInvitationRolesHaveClearDecisions(){seed();for(String role:new String[]{"player","coach"}){JSONObject preview=obj();put(preview,"name","Synthetic sender");put(preview,"role",role);put(preview,"sport","Tennis");ui(()->{ConnectUI.invitationDecision(a,"c".repeat(64),preview);assertNotNull(findButton(a.root,"Accept invitation"));assertNotNull(findButton(a.root,"Decline invitation"));assertNotNull(findButton(a.root,"Not now"));audit(a.root);});}}
+
  public void testDeviceConnectionKeepsTrackingLocal(){seed();String before=a.store.data.toString();ui(()->{ConnectUI.show(a);audit(a.root);assertNotNull(findButton(a.root,"Enable Connect"));assertNotNull(findButton(a.root,"Back to local tracking"));});assertEquals(before,a.store.data.toString());}
- public void testShareAllSelectsHistoryAndFuture(){seed();JSONObject connection=obj();put(connection,"id",id());put(connection,"player_account","");put(connection,"sport","Tennis");put(connection,"history","future");ui(()->{ConnectUI.permission(a,connection);Button all=findButton(a.root,"Share all sporting data, including history");assertNotNull(all);all.performClick();assertTrue(findText(a.root,"History: all history and future"));assertEquals(7,countChecked(a.root));assertNotNull(findButton(a.root,"Approve and save sharing"));audit(a.root);});}
+ public void testShareAllSelectsHistoryAndFuture(){seed();JSONObject connection=obj();put(connection,"id",id());put(connection,"player_account","");put(connection,"sport","Tennis");put(connection,"history","future");ui(()->{ConnectUI.permission(a,connection);Button all=findButton(a.root,"Share all sporting data, including history");assertNotNull(all);all.performClick();assertTrue(findText(a.root,"History: all history and future"));assertEquals(7,countChecked(a.root));assertNotNull(findButton(a.root,"Approve and start sharing"));audit(a.root);});}
  public void testCoachDashboardSeparatesPlayers(){seed();ConnectClient c=ConnectClient.get(a);String first=id(),second=id();JSONObject one=record(first,"First player's historical match"),two=record(second,"Second player's private-to-this-view match");c.records=new JSONArray().put(one).put(two);ui(()->{ConnectUI.playerDashboard(a,first,"First player","All approved sports","All categories");assertNotNull(findButton(a.root,"First player's historical match - Tennis - 2020-01-01T00:00:00Z"));assertNull(findButton(a.root,"Second player's private-to-this-view match - Tennis - 2020-01-01T00:00:00Z"));audit(a.root);});}
  public void testNotificationControlsRemainIndependent(){seed();ConnectClient c=ConnectClient.get(a);c.notificationSettings=obj();put(c.notificationSettings,"push_enabled",false);put(c.notificationSettings,"connection_requests",true);put(c.notificationSettings,"sharing_confirmations",true);put(c.notificationSettings,"coach_feedback",false);ui(()->{ConnectUI.notifications(a);assertEquals(2,countChecked(a.root));assertNotNull(findButton(a.root,"Open phone notification settings"));audit(a.root);});}
  static JSONObject record(String player,String title){JSONObject r=obj(),b=obj();put(r,"id",id());put(r,"player_id",player);put(r,"sport","Tennis");put(r,"category","match");put(r,"occurred_at","2020-01-01T00:00:00Z");put(b,"title",title);put(r,"body",b);return r;}

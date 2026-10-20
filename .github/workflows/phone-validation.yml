@@ -60,8 +60,10 @@ jobs:
           from pathlib import Path
           import re, os
           root=Path('app/src/androidTest/java/com/courtstory/app')
-          methods=re.findall(r'public void (test\w+)\(', (root/'ConnectFlowTest.java').read_text())
-          classes=['com.courtstory.app.ConnectFlowTest#'+method for method in methods]
+          classes=[]
+          for suite in ['ConnectFlowTest','ConnectInvitationJourneyTest']:
+              methods=re.findall(r'public void (test\w+)\(', (root/(suite+'.java')).read_text())
+              classes += ['com.courtstory.app.'+suite+'#'+method for method in methods]
           count=len(classes)
           Path('evidence/native-classes.txt').write_text(','.join(classes))
           Path('evidence/expected-tests.txt').write_text(str(count))

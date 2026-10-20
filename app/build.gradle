@@ -20,8 +20,8 @@ android {
         manifestPlaceholders = [connectLinkHost: connectLinkHost]
         minSdk 28
         targetSdk 36
-        versionCode 17
-        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.17')
+        versionCode 18
+        versionName providers.gradleProperty('courtStoryVersion').getOrElse('1.0-test.18')
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     kotlinOptions { jvmTarget = '17' }

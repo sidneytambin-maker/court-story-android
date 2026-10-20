@@ -13,8 +13,14 @@ final class ConnectProtocol {
     static final String[] CATEGORIES={"match","training","tournament","note","reflection","goal"};
     static String code(String input,String host){
         String value=input.trim();
-        if(value.contains(":")){try{URI u=new URI(value);if(!"https".equals(u.getScheme())||!host.equals(u.getHost())||!"/connect/invite".equals(u.getPath())||u.getUserInfo()!=null||u.getPort()!=-1||u.getQuery()!=null)return null;value=u.getFragment();}catch(Exception e){return null;}}
-        return value!=null&&value.matches("[a-f0-9]{64}")?value:null;
+        if(value.contains(":")){try{URI u=new URI(value);if(!"https".equals(u.getScheme())||!(host.equals(u.getHost()) || (host.equals("court-story-connect.web.app") && "court-story-connect.firebaseapp.com".equals(u.getHost())))||!"/connect/invite".equals(u.getPath())||u.getUserInfo()!=null||u.getPort()!=-1||u.getQuery()!=null)return null;value=u.getFragment();}catch(Exception e){return null;}}
+        return value!=null&&value.matches("[a-f0-9]{64}(/(accept|decline))?")?value.substring(0,64):null;
+    }
+    static String response(String input,String host){
+        if(code(input,host)==null)return "";
+        String value=input.trim();
+        try{if(value.contains(":"))value=new URI(value).getFragment();}catch(Exception e){return "";}
+        return value.length()>64?value.substring(65):"";
     }
     static String fingerprint(JSONObject value){try{byte[] digest=MessageDigest.getInstance("SHA-256").digest(value.toString().getBytes(StandardCharsets.UTF_8));StringBuilder out=new StringBuilder();for(byte b:digest)out.append(String.format(Locale.ROOT,"%02x",b));return out.toString();}catch(Exception e){throw new IllegalStateException(e);}}
     static String noteID(String id){return derivedID(id,"note");}

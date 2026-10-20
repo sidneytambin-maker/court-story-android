@@ -5,6 +5,24 @@ import java.util.*;
 import static org.junit.Assert.*;
 import static com.courtstory.app.Domain.*;
 public class ConnectProtocolTest {
+ @org.junit.Test public void responsePreservesBothChoicesAndRejectsUnknownActions(){
+  String code="a".repeat(64),host="court-story-connect.web.app";
+  for(String domain:new String[]{host,"court-story-connect.firebaseapp.com"})for(String action:new String[]{"accept","decline"}){
+   String link="https://"+domain+"/connect/invite#"+code+"/"+action;
+   org.junit.Assert.assertEquals(code,ConnectProtocol.code(link,host));
+   org.junit.Assert.assertEquals(action,ConnectProtocol.response(link,host));
+   org.junit.Assert.assertEquals(action,ConnectProtocol.response(code+"/"+action,host));
+  }
+  org.junit.Assert.assertEquals("",ConnectProtocol.response(code,host));
+  for(String suffix:new String[]{"/delete","/ACCEPT","/accept/decline","/accept?x=1"}){
+   org.junit.Assert.assertNull(ConnectProtocol.code(code+suffix,host));
+   org.junit.Assert.assertEquals("",ConnectProtocol.response(code+suffix,host));
+  }
+  org.junit.Assert.assertEquals("",ConnectProtocol.response("https://evil.example/connect/invite#"+code+"/accept",host));
+ }
+
+ @Test public void secondaryHostIsRestrictedToProduction(){String code="a".repeat(64),base="https://court-story-connect.firebaseapp.com/connect/invite#"+code;assertEquals(code,ConnectProtocol.code(base,"court-story-connect.web.app"));assertNull(ConnectProtocol.code(base,"another.example"));for(String bad:new String[]{base.replace("firebaseapp.com","firebaseapp.com.evil.example"),base.replace("https:","http:"),base.replace("/connect/invite","/other"),base.replace("#","?code=")})assertNull(ConnectProtocol.code(bad,"court-story-connect.web.app"));}
+
  @Test public void strictInvitationOrigin(){String code="a".repeat(64),host="connect.example.invalid";assertEquals(code,ConnectProtocol.code("https://"+host+"/connect/invite#"+code,host));assertEquals(code,ConnectProtocol.code(code,host));for(String bad:new String[]{"http://"+host+"/connect/invite#"+code,"https://evil.example/connect/invite#"+code,"https://user@"+host+"/connect/invite#"+code,"https://"+host+":443/connect/invite#"+code,"https://"+host+"/connect/invite?code="+code,"a".repeat(63)})assertNull(ConnectProtocol.code(bad,host));}
  @Test public void crossPlatformNoteIdentity(){assertEquals("fe1cb8b1-724c-5eaf-b03c-6d003d053b48",ConnectProtocol.noteID("00000000-0000-0000-0000-000000000001"));}
  @Test public void projectionExcludesHealthAndSeparatesNotes(){JSONObject library=obj(),r=obj(),health=obj();String player=id(),record=id();put(r,"id",record);put(r,"playerID",player);put(r,"date","2026-01-01T00:00:00Z");put(r,"setScores","6–4");put(r,"notes","Explicit consent required");put(health,"heartRate",140);put(r,"workout",health);put(r,"media","private-file");put(library,"matches",new JSONArray().put(r));assertTrue(ConnectProtocol.project(library,Set.of()).isEmpty());List<JSONObject> projected=ConnectProtocol.project(library,Set.of(player.toLowerCase(Locale.ROOT)));assertEquals(2,projected.size());JSONObject body=projected.get(0).optJSONObject("p_body");assertFalse(body.has("notes"));assertFalse(body.has("workout"));assertFalse(body.has("media"));assertEquals("6–4",body.optString("score"));assertEquals("note",projected.get(1).optString("p_category"));assertTrue(r.has("workout"));}
