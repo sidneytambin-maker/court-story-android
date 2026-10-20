@@ -43,7 +43,7 @@ public final class ConnectInvitationJourneyTest extends DeviceFlowTest {
   fixture=new Fixture();super.setUp();
   ConnectClient c=ConnectClient.get(a);
   c.worker.submit(()->{}).get(10,java.util.concurrent.TimeUnit.SECONDS);
-  java.lang.reflect.Field session=ConnectClient.class.getDeclaredField("session");session.setAccessible(true);session.set(c,null);
+  java.lang.reflect.Field session=ConnectClient.class.getDeclaredField("session");session.setAccessible(true);session.set(c,null);c.status="Ready for synthetic invitation test.";
   a.getSharedPreferences("connect",0).edit().clear().commit();
  }
  @Override protected void tearDown()throws Exception {
@@ -62,7 +62,7 @@ public final class ConnectInvitationJourneyTest extends DeviceFlowTest {
  public void testWebAcceptNeedsNoAdditionalTapAndNeverUploads()throws Exception {
   seed();String before=a.store.data.toString();open("accept");awaitResult("Invitation accepted.");
   assertEquals("accept",fixture.response);assertEquals(1,fixture.responses);assertEquals(0,fixture.uploads);assertEquals(before,a.store.data.toString());
-  ui(()->{assertNull(findButton(a.root,"Accept invitation"));assertNull(findButton(a.root,"Enable Connect"));});
+  ui(()->{assertNull(findButton(a.root,"Accept invitation"));assertNull(findButton(a.root,"Enable Connect"));assertTrue(findText(a.root,"Invitation accepted"));assertTrue(findText(a.root,"You agreed to receive Synthetic sender’s Tennis data."));assertNull(findButton(a.root,"View player’s data"));});
   assertEquals("",a.getSharedPreferences("connect",0).getString("pending",""));
  }
  public void testWebDeclineNeedsNoAdditionalTapAndNeverUploads()throws Exception {

@@ -85,13 +85,24 @@ final class ConnectUI {
     }
     static void respond(MainActivity a,String code,JSONObject preview,String response) {
         ConnectClient c=ConnectClient.get(a);
-        if("decline".equals(response)){run(a,()->c.decline(code),()->show(a));return;}
+        if("decline".equals(response)){run(a,()->c.decline(code),()->confirmation(a,preview,"decline",""));return;}
         if(!"accept".equals(response))return;
         JSONObject player=copy(a.store.player()); final String[] acceptedID={""};
         run(a,()->acceptedID[0]=c.accept(code,player),()->{
-            if("coach".equals(preview.optString("role")))for(JSONObject row:rows(c.connections))if(row.optString("id").equals(acceptedID[0]) && row.optString("player_account").equalsIgnoreCase(c.account()) && row.optString("state").equals("pending") && row.optString("player_id").equalsIgnoreCase(player.optString("id")) && row.optString("sport").equals(preview.optString("sport"))){permission(a,row);return;}
-            show(a);
+            confirmation(a,preview,"accept",acceptedID[0]);
         });
+    }
+    static void confirmation(MainActivity a,JSONObject preview,String response,String connectionID){
+        ConnectClient c=ConnectClient.get(a);JSONObject row=obj();
+        for(JSONObject item:rows(c.connections))if(item.optString("id").equals(connectionID)){row=item;break;}
+        final JSONObject connection=row;
+        ConnectInvitationConfirmation result=new ConnectInvitationConfirmation(response,row,preview,"coach".equals(preview.optString("role")),playerName(a.store.player()));
+        a.current=()->confirmation(a,preview,response,connectionID);
+        a.page(result.title,result.message);a.note(result.details);
+        if(result.canView)a.primary("View player’s data",()->playerDashboard(a,connection.optString("player_id"),result.playerName,connection.optString("sport"),"All categories"));
+        if(result.canManage&&!connection.optString("id").isEmpty())a.primary("Choose what to share",()->permission(a,connection));
+        if(response.equals("accept"))a.button("Refresh sharing status",()->run(a,c::refresh,()->confirmation(a,preview,response,connectionID)));
+        a.button("Done",()->show(a));a.announce(result.title+". "+result.message);
     }
     static void show(MainActivity a){show(a,"");}
     static void show(MainActivity a,String playerSearch){ConnectClient c=ConnectClient.get(a);String pendingInvitation=a.getSharedPreferences("connect",0).getString("pending","");if(!pendingInvitation.isEmpty()){review(a,pendingInvitation);return;}a.current=()->show(a,playerSearch);a.page("Court Story Connect","Optional sharing with players and coaches");a.note(c.status);a.button("Paste invitation",()->pasteInvitation(a));a.note("Enabling Connect never uploads your library. Health data and media are excluded. Keep personal information out of notes you choose to share.");
@@ -152,7 +163,9 @@ final class ConnectUI {
         a.button("Share all sporting data, including history",()->{for(CheckBox box:boxes)box.setChecked(true);history[0]="all";scope.setText("History: all history and future");future.setChecked(true);a.announce("All sporting categories, all history and automatic future sharing selected. Health, media and private records remain excluded. Press Approve and start sharing to confirm.");});
         java.util.function.Consumer<String> save=state->{JSONObject p=obj();put(p,"p_id",connection.optString("id"));put(p,"p_state",state);put(p,"p_categories",new JSONArray(selected));put(p,"p_history",history[0]);put(p,"p_start",history[0].equals("period")?start.getText()+"T00:00:00Z":JSONObject.NULL);put(p,"p_end",history[0].equals("period")?end.getText()+"T23:59:59Z":JSONObject.NULL);put(p,"p_future",future.isChecked());put(p,"p_capability",capability[0]);JSONObject player=copy(a.store.player()),library=copy(a.store.data);
             if(state.equals("active") && !player.optString("id").equalsIgnoreCase(connection.optString("player_id"))){a.error("Switch to the player profile named in this connection before sharing.");return;}
-            run(a,()->{c.rpc("cs_set_permission",p);if(state.equals("active"))c.enable(player,library);else c.refresh();},()->show(a));};
+            run(a,()->{c.rpc("cs_set_permission",p);if(state.equals("active"))c.enable(player,library);else c.refresh();},()->{
+                if(state.equals("active")){JSONObject preview=obj();put(preview,"name",connection.optString("coach_name","Coach"));put(preview,"role","coach");put(preview,"sport",connection.optString("sport"));confirmation(a,preview,"accept",connection.optString("id"));}else show(a);
+            });};
 
         a.note("Approving also uploads the selected sporting records from this device. You can pause or change sharing at any time.");a.button("Approve and start sharing",()->save.accept("active"));a.button("Keep private / pause connection",()->save.accept("paused"));a.button("Revoke access",()->save.accept("revoked"));a.note("Revocation stops server access immediately. Copies already saved by a coach cannot necessarily be erased remotely.");a.button("Cancel",()->show(a));
 
