@@ -30,6 +30,9 @@ public final class ConnectInvitationBrowserTest extends ConnectInvitationJourney
   assertTrue(measured.await(5,TimeUnit.SECONDS));JSONObject rect=new JSONObject((String)new JSONTokener(geometry.get()).nextValue());
   assertEquals(action.equals("accept")?"Accept invitation":"Decline invitation",rect.getString("label"));assertTrue("Page must not require horizontal scrolling",rect.getInt("content")<=rect.getInt("width"));assertTrue(rect.getString("href").contains(CODE+"/"+action));
   int[] origin=new int[2];ui(()->view.get().getLocationOnScreen(origin));float x=origin[0]+(float)(rect.getDouble("x")*rect.getDouble("scale")),y=origin[1]+(float)(rect.getDouble("y")*rect.getDouble("scale"));
+  CountDownLatch painted=new CountDownLatch(1);
+  ui(()->view.get().postVisualStateCallback(1,new WebView.VisualStateCallback(){@Override public void onComplete(long id){view.get().postOnAnimation(()->view.get().postOnAnimation(painted::countDown));}}));
+  assertTrue("Browser commits the rendered invitation",painted.await(10,TimeUnit.SECONDS));
   getInstrumentation().waitForIdleSync();
   android.graphics.Bitmap bitmap=getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull("Composited browser screenshot",bitmap);
   try(FileOutputStream out=new FileOutputStream(new File(a.getExternalFilesDir(null),"invitation-web-"+action+".png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}finally{bitmap.recycle();}
