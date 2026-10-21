@@ -7,7 +7,7 @@ import org.json.*;
 import static com.courtstory.app.Domain.*;
 
 /** Exercises the real client and native screens against an isolated, strict HTTP fixture. */
-public final class ConnectInvitationJourneyTest extends DeviceFlowTest {
+public class ConnectInvitationJourneyTest extends DeviceFlowTest {
  static volatile Fixture fixture;
  static boolean installed;
  static final String CODE="a".repeat(64);
@@ -55,6 +55,16 @@ public final class ConnectInvitationJourneyTest extends DeviceFlowTest {
  }
  void open(String action){ui(()->a.handleIntent(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://court-story-connect.firebaseapp.com/connect/invite#"+CODE+"/"+action))));}
  void awaitResult(String text)throws Exception {long until=android.os.SystemClock.uptimeMillis()+15000;while(android.os.SystemClock.uptimeMillis()<until){getInstrumentation().waitForIdleSync();if(ConnectClient.get(a).status.startsWith(text))return;Thread.sleep(30);}fail("Expected "+text+" but got "+ConnectClient.get(a).status);}
+ public void testConfirmationViewOpensOnlyTheNamedPlayer()throws Exception {
+  seed();String player=id(),other=id();JSONObject connection=obj(),preview=obj();
+  put(connection,"id",CONNECTION);put(connection,"player_id",player);put(connection,"player_name","Morgan Lee");put(connection,"coach_name","Alex");put(connection,"sport","Badminton");put(connection,"state","active");put(connection,"categories",new JSONArray().put("match").put("training"));put(connection,"history","all");put(connection,"future_sharing",true);put(connection,"capability","feedback");
+  put(preview,"role","player");put(preview,"name","Morgan Lee");put(preview,"sport","Badminton");
+  ConnectClient c=ConnectClient.get(a);c.connections=new JSONArray().put(connection);
+  JSONObject first=ConnectFlowTest.record(player,"Morgan match"),second=ConnectFlowTest.record(other,"Other player match");put(first,"sport","Badminton");put(second,"sport","Badminton");c.records=new JSONArray().put(first).put(second);
+  ui(()->{ConnectUI.confirmation(a,preview,"accept",CONNECTION);assertTrue(findText(a.root,"You agreed to receive Morgan Lee’s Badminton data."));assertNotNull(findButton(a.root,"View player’s data"));audit(a.root);});
+  ui(()->{try{android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(a.root.getWidth(),a.root.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);a.root.draw(new android.graphics.Canvas(bitmap));try(FileOutputStream out=new FileOutputStream(new File(a.getExternalFilesDir(null),"invitation-confirmation.png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}bitmap.recycle();}catch(Exception e){throw new AssertionError(e);}});
+  ui(()->{findButton(a.root,"View player’s data").performClick();assertNotNull(findButton(a.root,"Morgan match - Badminton - 2020-01-01T00:00:00Z"));assertNull(findButton(a.root,"Other player match - Badminton - 2020-01-01T00:00:00Z"));});
+ }
  public void testFirstUseAcceptUsesOneResponseTap()throws Exception {
   seed();ui(()->{a.handleIntent(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://court-story-connect.web.app/connect/invite#"+CODE)));assertNotNull(findButton(a.root,"Accept invitation"));assertNotNull(findButton(a.root,"Decline invitation"));assertNull(findButton(a.root,"Continue to invitation"));findButton(a.root,"Accept invitation").performClick();});
   awaitResult("Invitation accepted.");assertEquals("accept",fixture.response);assertEquals(1,fixture.responses);assertEquals(0,fixture.uploads);

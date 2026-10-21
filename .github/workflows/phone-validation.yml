@@ -61,7 +61,7 @@ jobs:
           import re, os
           root=Path('app/src/androidTest/java/com/courtstory/app')
           classes=[]
-          for suite in ['ConnectFlowTest','ConnectInvitationJourneyTest']:
+          for suite in ['ConnectFlowTest','ConnectInvitationJourneyTest','ConnectInvitationBrowserTest']:
               methods=re.findall(r'public void (test\w+)\(', (root/(suite+'.java')).read_text())
               classes += ['com.courtstory.app.'+suite+'#'+method for method in methods]
           count=len(classes)
